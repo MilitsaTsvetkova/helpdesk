@@ -4,24 +4,8 @@ import { prisma } from '../lib/prisma';
 
 const router = Router();
 
-router.post('/register', async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) {
-    res.status(400).json({ error: 'Email and password are required' });
-    return;
-  }
-
-  const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) {
-    res.status(409).json({ error: 'Email already in use' });
-    return;
-  }
-
-  const passwordHash = await bcrypt.hash(password, 10);
-  const user = await prisma.user.create({ data: { email, passwordHash } });
-
-  req.session.userId = user.id;
-  res.status(201).json({ id: user.id, email: user.email });
+router.post('/register', (_req, res) => {
+  res.status(403).json({ error: 'Registration is disabled' });
 });
 
 router.post('/login', async (req, res) => {
