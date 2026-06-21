@@ -1,29 +1,36 @@
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../contexts/AuthContext";
+import { authClient } from "../lib/auth-client";
 import "./LoginPage.css";
 
 export function LoginPage() {
-  const { login } = useAuth();
   const navigate = useNavigate();
+  const { data: session, isPending } = authClient.useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Redirect once session is confirmed (covers both "already logged in" and post-login)
+  useEffect(() => {
+    if (!isPending && session) {
+      navigate("/", { replace: true });
+    }
+  }, [session, isPending, navigate]);
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
     setLoading(true);
-    try {
-      await login(email, password);
-      navigate("/", { replace: true });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
-    } finally {
+    const { error: err } = await authClient.signIn.email({ email, password });
+    if (err) {
+      setError(err.message ?? "Login failed");
       setLoading(false);
     }
+    // Navigation is handled by the useEffect above when session updates
   }
+
+  if (isPending) return null;
 
   return (
     <div className="login-page">

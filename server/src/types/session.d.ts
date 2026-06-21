@@ -1,7 +1,11 @@
-import 'express-session';
+import type { auth } from "../lib/auth";
 
-declare module 'express-session' {
-  interface SessionData {
-    userId: string;
+type SessionUser = typeof auth.$Infer.Session.user;
+
+declare global {
+  namespace Express {
+    interface Request {
+      user?: SessionUser;
+    }
   }
 }
