@@ -1,12 +1,11 @@
 {
   "name": "helpdesk",
   "version": "1.0.0",
-  "description": "",
-  "license": "ISC",
-  "author": "",
-  "type": "commonjs",
-  "main": "index.js",
+  "private": true,
+  "workspaces": ["client", "server"],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "bun run --filter '*' dev",
+    "dev:client": "bun run --cwd client dev",
+    "dev:server": "bun run --cwd server dev"
   }
 }

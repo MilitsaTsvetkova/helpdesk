@@ -4,10 +4,8 @@
 
 - [ ] Initialize monorepo structure (`/client`, `/server`)
 - [ ] Set up Express + TypeScript server (tsconfig, eslint, nodemon)
-- [ ] Set up React + React Router + Tailwind + shadcn/ui client
+- [ ] Set up React + Typescript
 - [ ] Set up PostgreSQL with Prisma (initial schema, migrations)
-- [ ] Write `docker-compose.yml` for local dev (frontend, backend, postgres)
-- [ ] Add `.env` handling for both client and server
 
 ---
 
