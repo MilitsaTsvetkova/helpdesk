@@ -1,33 +1,41 @@
-import { useState, useEffect, type FormEvent } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { authClient } from "../lib/auth-client";
 import "./LoginPage.css";
+
+const loginSchema = z.object({
+  email: z.string().email({ message: "Invalid email address" }),
+  password: z.string().min(8, { message: "Password must be at least 8 characters" }),
+});
+
+type LoginFormData = z.infer<typeof loginSchema>;
 
 export function LoginPage() {
   const navigate = useNavigate();
   const { data: session, isPending } = authClient.useSession();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    setError,
+    formState: { errors, isSubmitting },
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+  });
 
-  // Redirect once session is confirmed (covers both "already logged in" and post-login)
   useEffect(() => {
     if (!isPending && session) {
       navigate("/", { replace: true });
     }
   }, [session, isPending, navigate]);
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-    const { error: err } = await authClient.signIn.email({ email, password });
+  async function onSubmit(data: LoginFormData) {
+    const { error: err } = await authClient.signIn.email(data);
     if (err) {
-      setError(err.message ?? "Login failed");
-      setLoading(false);
+      setError("root", { message: err.message ?? "Login failed" });
     }
-    // Navigation is handled by the useEffect above when session updates
   }
 
   if (isPending) return null;
@@ -37,33 +45,31 @@ export function LoginPage() {
       <div className="login-card">
         <h1 className="login-title">Helpdesk</h1>
         <p className="login-subtitle">Sign in to your account</p>
-        <form onSubmit={handleSubmit} className="login-form">
+        <form onSubmit={handleSubmit(onSubmit)} className="login-form">
           <div className="form-group">
             <label htmlFor="email">Email</label>
             <input
               id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              type="text"
+              {...register("email")}
               placeholder="you@example.com"
-              required
               autoFocus
             />
+            {errors.email && <p className="field-error">{errors.email.message}</p>}
           </div>
           <div className="form-group">
             <label htmlFor="password">Password</label>
             <input
               id="password"
               type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              {...register("password")}
               placeholder="••••••••"
-              required
             />
+            {errors.password && <p className="field-error">{errors.password.message}</p>}
           </div>
-          {error && <p className="login-error">{error}</p>}
-          <button type="submit" className="login-btn" disabled={loading}>
-            {loading ? "Signing in…" : "Sign in"}
+          {errors.root && <p className="login-error">{errors.root.message}</p>}
+          <button type="submit" className="login-btn" disabled={isSubmitting}>
+            {isSubmitting ? "Signing in…" : "Sign in"}
           </button>
         </form>
       </div>

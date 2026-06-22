@@ -61,6 +61,12 @@
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
 }
 
+.field-error {
+  margin: 0.25rem 0 0;
+  color: #dc2626;
+  font-size: 0.8125rem;
+}
+
 .login-error {
   margin: 0;
   padding: 0.625rem 0.875rem;
