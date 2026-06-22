@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { authClient } from "../lib/auth-client";
+import { useSession, signIn as authSignIn } from "../lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -24,7 +24,7 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { data: session, isPending } = authClient.useSession();
+  const { data: session, isPending } = useSession();
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   });
@@ -36,7 +36,7 @@ export function LoginPage() {
   }, [session, isPending, navigate]);
 
   async function onSubmit(data: LoginFormData) {
-    const { error: err } = await authClient.signIn.email(data);
+    const { error: err } = await authSignIn.email(data);
     if (err) {
       form.setError("root", { message: err.message ?? "Login failed" });
     }
