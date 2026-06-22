@@ -4,10 +4,11 @@ AI-powered ticket management system. See `project-scope.md` for full feature lis
 
 ## Tech Stack
 
-- **Frontend**: React 19 + React Router + TypeScript, bundled with Vite (runs on `:5173`)
+- **Frontend**: React 19 + React Router v7 + TypeScript, bundled with Vite (runs on `:5173`)
 - **Backend**: Express + TypeScript, runtime Bun (runs on `:3000`)
 - **Database**: PostgreSQL + Prisma ORM
-- **Auth**: Database sessions via `express-session` + `connect-pg-simple`
+- **Auth**: Better Auth with database sessions (`express-session` + `connect-pg-simple`)
+- **UI**: Tailwind CSS v4 (`@tailwindcss/vite` plugin) + shadcn/ui components
 - **AI**: Claude API (`claude-sonnet-4-6`)
 - **Infrastructure**: Docker + cloud provider (AWS / Railway / Fly.io)
 
@@ -15,9 +16,16 @@ AI-powered ticket management system. See `project-scope.md` for full feature lis
 
 ```
 helpdesk/
-├── client/         React SPA
+├── client/                   React SPA
+│   ├── components.json       shadcn/ui config
 │   └── src/
-├── server/         Express API
+│       ├── components/
+│       │   └── ui/           shadcn/ui primitives (Button, Input, Label, Form)
+│       ├── lib/
+│       │   └── utils.ts      cn() helper (clsx + tailwind-merge)
+│       ├── pages/
+│       └── index.css         Tailwind import + shadcn CSS variables
+├── server/                   Express API
 │   └── src/
 ├── docker-compose.yml
 └── .env.example
@@ -32,6 +40,20 @@ bun run dev:client   # Vite on :5173
 
 Vite proxies `/api/*` → `http://localhost:3000`.
 
+## UI Components
+
+shadcn/ui is installed manually for Tailwind v4 compatibility. Components live in `client/src/components/ui/`.
+
+- Use `@/` path alias for all imports (maps to `client/src/`)
+- Add new components with `npx shadcn@latest add <component>` from the `client/` directory
+- On dark backgrounds, add `bg-transparent` to `variant="outline"` buttons — the default `bg-background` (white) will otherwise bleed through
+
+## Tailwind CSS v4 Notes
+
+- No `tailwind.config.js` — configuration is CSS-native
+- CSS entry: `src/index.css` with `@import "tailwindcss"` + `@layer base` for design tokens + `@theme inline` for Tailwind variable mapping
+- `components.json` has `tailwind.config: ""` (empty) per v4 convention
+
 ## Documentation
 
 Always use **Context7 MCP** to fetch up-to-date documentation before writing code involving any library or framework — do not rely on training data.
@@ -42,4 +64,4 @@ Always use **Context7 MCP** to fetch up-to-date documentation before writing cod
 3. Use the fetched docs to write the code
 ```
 
-Apply this for: Express, React, React Router, Prisma, Bun, shadcn/ui, Tailwind, express-session, connect-pg-simple, and any other dependency.
+Apply this for: Express, React, React Router, Prisma, Bun, shadcn/ui, Tailwind, Better Auth, and any other dependency.
