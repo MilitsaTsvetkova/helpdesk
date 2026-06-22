@@ -1,7 +1,9 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { AdminRoute } from "./components/AdminRoute";
 import { Navbar } from "./components/Navbar";
 import { LoginPage } from "./pages/LoginPage";
+import { UsersPage } from "./pages/UsersPage";
 import "./index.css";
 
 function Home() {
@@ -23,6 +25,14 @@ export default function App() {
             <Navbar />
             <Routes>
               <Route path="/" element={<Home />} />
+              <Route
+                path="/users"
+                element={
+                  <AdminRoute>
+                    <UsersPage />
+                  </AdminRoute>
+                }
+              />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </ProtectedRoute>
