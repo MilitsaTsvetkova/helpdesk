@@ -6,8 +6,8 @@ import "./index.css";
 
 function Home() {
   return (
-    <div className="page-content">
-      <h2>Welcome to Helpdesk</h2>
+    <div className="p-8">
+      <h2 className="text-xl font-semibold text-slate-800">Welcome to Helpdesk</h2>
     </div>
   );
 }
