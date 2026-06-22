@@ -1,4 +1,5 @@
 import { useAuth } from "../contexts/AuthContext";
+import { Button } from "@/components/ui/button";
 
 export function Navbar() {
   const { user, logout } = useAuth();
@@ -9,12 +10,14 @@ export function Navbar() {
       {user && (
         <div className="flex items-center gap-4">
           <span className="text-sm text-slate-400">{user.name || user.email}</span>
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={logout}
-            className="px-3.5 py-1.5 text-sm text-slate-50 border border-slate-500 rounded-md cursor-pointer transition hover:bg-slate-700 hover:border-slate-400"
+            className="bg-transparent border-slate-500 text-slate-50 hover:bg-slate-700 hover:text-slate-50 hover:border-slate-400"
           >
             Logout
-          </button>
+          </Button>
         </div>
       )}
     </nav>
