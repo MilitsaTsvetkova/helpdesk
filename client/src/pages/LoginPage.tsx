@@ -59,7 +59,7 @@ export function LoginPage() {
                   <FormLabel>Email</FormLabel>
                   <FormControl>
                     <Input
-                      type="text"
+                      type="email"
                       placeholder="you@example.com"
                       autoFocus
                       {...field}
