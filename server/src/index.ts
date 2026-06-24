@@ -19,14 +19,14 @@ app.use(
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: Number(process.env.RATE_LIMIT_MAX ?? 10),
   message: { error: "Too many login attempts, please try again later" },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
-// Rate-limit auth routes; Better Auth handler must come before express.json()
-app.use("/api/auth", authLimiter);
+// Rate-limit only sign-in to prevent brute force; session checks are exempt
+app.use("/api/auth/sign-in", authLimiter);
 app.all("/api/auth/*", toNodeHandler(auth));
 
 app.use(express.json({ limit: "10kb" }));

@@ -50,7 +50,7 @@ export function LoginPage() {
         <h1 className="text-2xl font-bold text-slate-900 mb-1">Helpdesk</h1>
         <p className="text-sm text-slate-500 mb-8">Sign in to your account</p>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-5">
+          <form onSubmit={form.handleSubmit(onSubmit)} noValidate className="flex flex-col gap-5">
             <FormField
               control={form.control}
               name="email"

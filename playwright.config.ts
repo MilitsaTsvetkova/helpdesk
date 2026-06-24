@@ -23,9 +23,20 @@ export default defineConfig({
   },
 
   projects: [
+    // Auth setup: seeds test users into helpdesk_test and saves storageState.
+    // Must complete before any test project that uses e2e/.auth/user.json.
+    {
+      name: 'setup',
+      testMatch: /auth\.setup\.ts/,
+    },
+    // All other tests run in chromium after setup completes.
+    // Individual test files/describe-blocks that need an authenticated session
+    // opt in with: test.use({ storageState: 'e2e/.auth/user.json' })
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup'],
+      testIgnore: /auth\.setup\.ts/,
     },
   ],
 
@@ -44,7 +55,9 @@ export default defineConfig({
         DATABASE_URL: TEST_DB_URL,
         PORT: String(SERVER_PORT),
         SESSION_SECRET: 'test-session-secret-do-not-use-in-prod',
+        BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET ?? 'test-better-auth-secret-do-not-use-in-prod',
         CORS_ORIGINS: `http://localhost:${CLIENT_PORT}`,
+        RATE_LIMIT_MAX: '100',
       },
     },
     {
