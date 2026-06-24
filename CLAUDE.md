@@ -4,7 +4,7 @@ AI-powered ticket management system. See `project-scope.md` for full feature lis
 
 ## Tech Stack
 
-- **Frontend**: React 19 + React Router v7 + TypeScript, bundled with Vite (runs on `:5173`)
+- **Frontend**: React 19 + React Router v7 + TypeScript, bundled with Vite (runs on `:5173`); TanStack Query v5 for server state, Axios for HTTP
 - **Backend**: Express + TypeScript, runtime Bun (runs on `:3000`)
 - **Database**: PostgreSQL + Prisma ORM
 - **Auth**: Better Auth with database sessions (`express-session` + `connect-pg-simple`)
@@ -39,6 +39,13 @@ bun run dev:client   # Vite on :5173
 ```
 
 Vite proxies `/api/*` → `http://localhost:3000`.
+
+## Data Fetching
+
+- Use **Axios** for all HTTP requests (`withCredentials: true` on every call so cookies are sent)
+- Use **TanStack Query** (`useQuery`, `useMutation`) for all server state — no raw `useEffect`/`useState` for fetching
+- `QueryClientProvider` is already mounted in `main.tsx`
+- Extract query functions as standalone `async function` above the component, not inline
 
 ## UI Components
 
