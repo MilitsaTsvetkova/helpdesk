@@ -39,6 +39,7 @@ bun run dev:client   # Vite on :5173
 ```
 
 Vite proxies `/api/*` → `http://localhost:3000`.
+
 ## UI Components
 
 shadcn/ui is installed manually for Tailwind v4 compatibility. Components live in `client/src/components/ui/`.
@@ -52,6 +53,17 @@ shadcn/ui is installed manually for Tailwind v4 compatibility. Components live i
 - No `tailwind.config.js` — configuration is CSS-native
 - CSS entry: `src/index.css` with `@import "tailwindcss"` + `@layer base` for design tokens + `@theme inline` for Tailwind variable mapping
 - `components.json` has `tailwind.config: ""` (empty) per v4 convention
+
+## E2E Testing
+
+Use the **`playwright-e2e-writer`** agent to write Playwright tests — invoke it after completing any significant UI feature, page, form, or auth flow. Never write E2E tests inline; always delegate to the agent.
+
+```
+Agent: playwright-e2e-writer
+Trigger: after finishing a feature, page, or user flow that needs browser-level coverage
+```
+
+The agent has full knowledge of the test infrastructure (ports, DB setup, run commands, POM conventions). See `.claude/agents/playwright-e2e-writer.md` for its configuration.
 
 ## Documentation
 
