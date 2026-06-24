@@ -40,6 +40,30 @@ bun run dev:client   # Vite on :5173
 
 Vite proxies `/api/*` → `http://localhost:3000`.
 
+## E2E Testing (Playwright)
+
+Tests live in `e2e/`. The test stack runs on different ports to avoid conflicting with dev servers:
+- Backend on `:3001` — pointed at `helpdesk_test` database
+- Frontend on `:5174` — Vite proxy auto-targets `:3001`
+
+```bash
+bun test:e2e           # headless
+bun test:e2e:ui        # interactive UI mode
+bun test:e2e:report    # open last HTML report
+```
+
+**Test database setup** (`helpdesk_test`):
+- `global-setup.ts` creates the DB if absent and runs `prisma db push` to sync the schema
+- The `helpdesk` postgres user needs `CREATEDB` privilege — grant once per machine:
+  ```bash
+  psql postgres -c "ALTER USER helpdesk CREATEDB;"
+  ```
+- Copy `.env.test.example` → `.env.test` (values work out of the box for local dev)
+- Test data persists between runs for debugging; reset the schema manually with:
+  ```bash
+  cd server && DATABASE_URL=postgresql://helpdesk:helpdesk@localhost:5432/helpdesk_test bunx prisma db push --force-reset
+  ```
+
 ## UI Components
 
 shadcn/ui is installed manually for Tailwind v4 compatibility. Components live in `client/src/components/ui/`.
