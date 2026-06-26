@@ -1,3 +1,5 @@
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -6,14 +8,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
+import { Role } from "core";
 
 export type User = {
   id: string;
   name: string;
   email: string;
-  role: "ADMIN" | "AGENT";
+  role: Role;
   createdAt: string;
 };
 
@@ -22,9 +23,16 @@ type Props = {
   isPending: boolean;
   error: Error | null;
   onEdit?: (user: User) => void;
+  onDelete?: (user: User) => void;
 };
 
-export function UsersTable({ users, isPending, error, onEdit }: Props) {
+export function UsersTable({
+  users,
+  isPending,
+  error,
+  onEdit,
+  onDelete,
+}: Props) {
   if (isPending) {
     return (
       <div className="rounded-md border border-slate-200">
@@ -35,17 +43,27 @@ export function UsersTable({ users, isPending, error, onEdit }: Props) {
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Joined</TableHead>
-              <TableHead />
+              <TableHead className="text-center">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {Array.from({ length: 5 }).map((_, i) => (
               <TableRow key={i}>
-                <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                <TableCell><Skeleton className="h-4 w-14" /></TableCell>
-                <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                <TableCell><Skeleton className="h-4 w-10" /></TableCell>
+                <TableCell>
+                  <Skeleton className="h-4 w-32" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-4 w-48" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-4 w-14" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-4 w-24" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-4 w-10" />
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -67,13 +85,16 @@ export function UsersTable({ users, isPending, error, onEdit }: Props) {
             <TableHead>Email</TableHead>
             <TableHead>Role</TableHead>
             <TableHead>Joined</TableHead>
-            <TableHead />
+            <TableHead className="text-center">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {users.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={5} className="text-center text-slate-500 py-8">
+              <TableCell
+                colSpan={5}
+                className="text-center text-slate-500 py-8"
+              >
                 No users found.
               </TableCell>
             </TableRow>
@@ -85,7 +106,7 @@ export function UsersTable({ users, isPending, error, onEdit }: Props) {
                 <TableCell>
                   <span
                     className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                      user.role === "ADMIN"
+                      user.role === Role.ADMIN
                         ? "bg-violet-100 text-violet-700"
                         : "bg-slate-100 text-slate-600"
                     }`}
@@ -101,9 +122,24 @@ export function UsersTable({ users, isPending, error, onEdit }: Props) {
                   })}
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button variant="outline" size="sm" onClick={() => onEdit?.(user)}>
-                    Edit
-                  </Button>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onEdit?.(user)}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onDelete?.(user)}
+                      disabled={user.role === Role.ADMIN}
+                      className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300 disabled:opacity-40"
+                    >
+                      Delete
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))

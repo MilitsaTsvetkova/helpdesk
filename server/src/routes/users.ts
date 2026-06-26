@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import { Router, type Response } from "express";
 import { type ZodType } from "zod";
-import { createUserSchema, editUserSchema } from "core";
+import { createUserSchema, editUserSchema, Role } from "core";
 import { prisma } from "../lib/prisma";
 import { requireAdmin } from "../middleware/requireAdmin";
 import { requireAuth } from "../middleware/requireAuth";
@@ -19,6 +19,7 @@ const router = Router();
 
 router.get("/", requireAuth, requireAdmin, async (_req, res) => {
   const users = await prisma.user.findMany({
+    where: { deletedAt: null },
     select: {
       id: true,
       name: true,
@@ -121,6 +122,27 @@ router.put("/:id", requireAuth, requireAdmin, async (req, res) => {
   });
 
   res.json(user);
+});
+
+router.delete("/:id", requireAuth, requireAdmin, async (req, res) => {
+  const id = req.params.id as string;
+
+  const user = await prisma.user.findUnique({ where: { id, deletedAt: null } });
+  if (!user) {
+    res.status(404).json({ error: "User not found." });
+    return;
+  }
+  if (user.role === Role.ADMIN) {
+    res.status(403).json({ error: "Admin users cannot be deleted." });
+    return;
+  }
+
+  await prisma.user.update({
+    where: { id },
+    data: { deletedAt: new Date() },
+  });
+
+  res.status(204).send();
 });
 
 export default router;

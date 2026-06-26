@@ -67,7 +67,8 @@ The `core` workspace package (`core/src/`) holds code that is used by both `clie
 
 **When to add something to `core`:**
 - A Zod schema (and its inferred type) that is validated on the server and also used in a client form
-- A shared type or constant that would otherwise be duplicated
+- A shared enum or constant that would otherwise be duplicated (e.g. `Role`)
+- A shared type that would otherwise be duplicated
 
 **When NOT to use `core`:**
 - Anything browser-specific (DOM, React, etc.)
@@ -87,6 +88,26 @@ import { createUserSchema, type CreateUserData } from "core";
 ```
 
 To add a new shared module: create a file under `core/src/`, export it from `core/src/index.ts`, then import with `from "core"` on either side.
+
+## Enums and Constants
+
+Never use magic strings for domain values. Define them as a `const` object in `core` and import everywhere:
+
+```ts
+// core/src/roles.ts
+export const Role = {
+  ADMIN: "ADMIN",
+  AGENT: "AGENT",
+} as const;
+
+export type Role = (typeof Role)[keyof typeof Role];
+
+// usage (client or server)
+import { Role } from "core";
+if (user.role === Role.ADMIN) { ... }
+```
+
+Use a `const` object (not a TypeScript `enum`) — it compiles away cleanly, works with all bundlers, and the values remain readable at runtime.
 
 ## Data Validation
 
