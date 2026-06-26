@@ -61,6 +61,36 @@ shadcn/ui is installed manually for Tailwind v4 compatibility. Components live i
 - CSS entry: `src/index.css` with `@import "tailwindcss"` + `@layer base` for design tokens + `@theme inline` for Tailwind variable mapping
 - `components.json` has `tailwind.config: ""` (empty) per v4 convention
 
+## Unit & Component Testing
+
+**Stack**: Vitest + React Testing Library + jsdom. Config lives in `client/vite.config.ts` (`test` block). Global test setup: `client/src/test/setup.ts` (imports `@testing-library/jest-dom`).
+
+**Run commands** (from `client/`):
+
+```bash
+bun run test          # single run (CI)
+bun run test:watch    # watch mode
+```
+
+**Conventions**:
+
+- Co-locate test files next to the component: `Foo.tsx` → `Foo.test.tsx`
+- Always use `renderWithQuery` from `@/test/render-with-query` instead of bare `render` — it wraps the component in a `QueryClientProvider` with `retry: false`
+- Mock `axios` at the module level with `vi.mock("axios")`, then override per-test with `vi.mocked(axios).get = vi.fn().mockResolvedValue(...)` or `.mockRejectedValue(...)`
+- Call `vi.clearAllMocks()` in `beforeEach` to prevent cross-test bleed
+- Never mock TanStack Query itself — only mock the underlying `axios` calls
+- Use `waitFor` (not raw `await`) when asserting on async state changes
+- Test what the user sees: headings, table content, badges, error messages — not implementation details
+
+**What to test per component**:
+
+1. Loading state (skeleton / spinner visible, data not yet rendered)
+2. Empty state (e.g. "No items found.")
+3. Populated state (each row / item renders correctly)
+4. Error state (API rejects → error message shown)
+5. API called with correct args (`withCredentials: true`, right URL)
+6. Visual variants (badge colours, conditional classes)
+
 ## E2E Testing
 
 Use the **`playwright-e2e-writer`** agent to write Playwright tests — invoke it after completing any significant UI feature, page, form, or auth flow. Never write E2E tests inline; always delegate to the agent.
