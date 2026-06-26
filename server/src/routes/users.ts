@@ -1,9 +1,19 @@
 import bcrypt from "bcryptjs";
-import { Router } from "express";
+import { Router, type Response } from "express";
+import { type ZodType } from "zod";
 import { createUserSchema, editUserSchema } from "core";
 import { prisma } from "../lib/prisma";
 import { requireAdmin } from "../middleware/requireAdmin";
 import { requireAuth } from "../middleware/requireAuth";
+
+function validate<T>(schema: ZodType<T>, body: unknown, res: Response): T | null {
+  const result = schema.safeParse(body);
+  if (!result.success) {
+    res.status(400).json({ error: result.error.issues[0].message });
+    return null;
+  }
+  return result.data;
+}
 
 const router = Router();
 
@@ -22,12 +32,9 @@ router.get("/", requireAuth, requireAdmin, async (_req, res) => {
 });
 
 router.post("/", requireAuth, requireAdmin, async (req, res) => {
-  const result = createUserSchema.safeParse(req.body);
-  if (!result.success) {
-    res.status(400).json({ error: result.error.issues[0].message });
-    return;
-  }
-  const { name, email, password } = result.data;
+  const data = validate(createUserSchema, req.body, res);
+  if (!data) return;
+  const { name, email, password } = data;
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
@@ -76,13 +83,10 @@ router.post("/", requireAuth, requireAdmin, async (req, res) => {
 });
 
 router.put("/:id", requireAuth, requireAdmin, async (req, res) => {
-  const result = editUserSchema.safeParse(req.body);
-  if (!result.success) {
-    res.status(400).json({ error: result.error.issues[0].message });
-    return;
-  }
-  const { name, email, password } = result.data;
-  const { id } = req.params;
+  const data = validate(editUserSchema, req.body, res);
+  if (!data) return;
+  const { name, email, password } = data;
+  const id = req.params.id as string;
 
   const existing = await prisma.user.findUnique({ where: { id } });
   if (!existing) {
