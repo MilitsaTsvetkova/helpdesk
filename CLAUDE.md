@@ -61,6 +61,55 @@ shadcn/ui is installed manually for Tailwind v4 compatibility. Components live i
 - CSS entry: `src/index.css` with `@import "tailwindcss"` + `@layer base` for design tokens + `@theme inline` for Tailwind variable mapping
 - `components.json` has `tailwind.config: ""` (empty) per v4 convention
 
+## Data Validation
+
+**Library**: Zod v4 (`"zod": "^4.4.3"`) — installed on both client and server.
+
+### Client (React forms)
+
+Use `zodResolver` from `@hookform/resolvers/zod` with React Hook Form:
+
+```ts
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+
+const schema = z.object({
+  email: z.email("Invalid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+});
+type FormData = z.infer<typeof schema>;
+
+const form = useForm<FormData>({ resolver: zodResolver(schema) });
+```
+
+### Server (Express routes)
+
+Use `safeParse` — never `parse` (which throws). Return the first issue message on `400`:
+
+```ts
+import { z } from "zod";
+
+const createUserSchema = z.object({
+  name: z.string().min(3, "Name must be at least 3 characters."),
+  email: z.email("A valid email is required."),
+  password: z.string().min(8, "Password must be at least 8 characters."),
+});
+
+const result = createUserSchema.safeParse(req.body);
+if (!result.success) {
+  res.status(400).json({ error: result.error.issues[0].message });
+  return;
+}
+const { name, email } = result.data; // fully typed
+```
+
+### Zod v4 notes
+
+- Use `.issues` (not `.errors` — removed in v4)
+- Use `z.treeifyError(err)` for structured error trees (`.flatten()` is deprecated)
+- Use `z.prettifyError(err)` for human-readable multi-line error strings
+- Define schemas at module scope (not inside components/handlers)
+
 ## Unit & Component Testing
 
 **Stack**: Vitest + React Testing Library + jsdom. Config lives in `client/vite.config.ts` (`test` block). Global test setup: `client/src/test/setup.ts` (imports `@testing-library/jest-dom`).

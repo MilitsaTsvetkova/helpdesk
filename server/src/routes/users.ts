@@ -1,8 +1,15 @@
-import { Router } from "express";
 import bcrypt from "bcryptjs";
-import { requireAuth } from "../middleware/requireAuth";
-import { requireAdmin } from "../middleware/requireAdmin";
+import { Router } from "express";
+import { z } from "zod";
 import { prisma } from "../lib/prisma";
+import { requireAdmin } from "../middleware/requireAdmin";
+import { requireAuth } from "../middleware/requireAuth";
+
+const createUserSchema = z.object({
+  name: z.string().trim().min(3, "Name must be at least 3 characters."),
+  email: z.email("A valid email is required."),
+  password: z.string().min(8, "Password must be at least 8 characters."),
+});
 
 const router = Router();
 
@@ -21,20 +28,12 @@ router.get("/", requireAuth, requireAdmin, async (_req, res) => {
 });
 
 router.post("/", requireAuth, requireAdmin, async (req, res) => {
-  const { name, email, password } = req.body;
-
-  if (typeof name !== "string" || name.trim().length < 3) {
-    res.status(400).json({ error: "Name must be at least 3 characters." });
+  const result = createUserSchema.safeParse(req.body);
+  if (!result.success) {
+    res.status(400).json({ error: result.error.issues[0].message });
     return;
   }
-  if (typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    res.status(400).json({ error: "A valid email is required." });
-    return;
-  }
-  if (typeof password !== "string" || password.length < 8) {
-    res.status(400).json({ error: "Password must be at least 8 characters." });
-    return;
-  }
+  const { name, email, password } = result.data;
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
@@ -49,8 +48,21 @@ router.post("/", requireAuth, requireAdmin, async (req, res) => {
 
   const user = await prisma.$transaction(async (tx) => {
     const created = await tx.user.create({
-      data: { id, name: name.trim(), email, emailVerified: false, createdAt: now, updatedAt: now },
-      select: { id: true, name: true, email: true, role: true, createdAt: true },
+      data: {
+        id,
+        name,
+        email,
+        emailVerified: false,
+        createdAt: now,
+        updatedAt: now,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
+      },
     });
     await tx.account.create({
       data: {
