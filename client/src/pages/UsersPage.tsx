@@ -11,14 +11,18 @@ import {
 import { UserForm } from "@/components/UserForm";
 import { UsersTable, type User } from "@/components/UsersTable";
 
+type DialogState =
+  | { mode: "create" }
+  | { mode: "edit"; user: User }
+  | null;
+
 async function fetchUsers(): Promise<User[]> {
   const res = await axios.get<User[]>("/api/users", { withCredentials: true });
   return res.data;
 }
 
 export function UsersPage() {
-  const [open, setOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [dialog, setDialog] = useState<DialogState>(null);
 
   const { data: users = [], isPending, error } = useQuery({
     queryKey: ["users"],
@@ -29,31 +33,27 @@ export function UsersPage() {
     <div className="p-8 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold text-slate-800">Users</h1>
-        <Button onClick={() => setOpen(true)}>Create User</Button>
+        <Button onClick={() => setDialog({ mode: "create" })}>Create User</Button>
       </div>
 
-      <UsersTable users={users} isPending={isPending} error={error} onEdit={setEditingUser} />
+      <UsersTable
+        users={users}
+        isPending={isPending}
+        error={error}
+        onEdit={(user) => setDialog({ mode: "edit", user })}
+      />
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={dialog !== null} onOpenChange={(isOpen) => { if (!isOpen) setDialog(null); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Create User</DialogTitle>
+            <DialogTitle>
+              {dialog?.mode === "edit" ? "Edit User" : "Create User"}
+            </DialogTitle>
           </DialogHeader>
-          <UserForm onClose={() => setOpen(false)} />
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={!!editingUser}
-        onOpenChange={(isOpen) => { if (!isOpen) setEditingUser(null); }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit User</DialogTitle>
-          </DialogHeader>
-          {editingUser && (
-            <UserForm user={editingUser} onClose={() => setEditingUser(null)} />
-          )}
+          <UserForm
+            user={dialog?.mode === "edit" ? dialog.user : undefined}
+            onClose={() => setDialog(null)}
+          />
         </DialogContent>
       </Dialog>
     </div>
