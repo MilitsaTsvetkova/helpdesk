@@ -2,7 +2,7 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import axios from "axios";
-import { CreateUserForm } from "./CreateUserForm";
+import { UserForm } from "./UserForm";
 import { renderWithQuery } from "@/test/render-with-query";
 
 vi.mock("axios");
@@ -23,7 +23,7 @@ beforeEach(() => {
 function setup() {
   const onClose = vi.fn();
   const user = userEvent.setup();
-  renderWithQuery(<CreateUserForm onClose={onClose} />);
+  renderWithQuery(<UserForm onClose={onClose} />);
   return { user, onClose };
 }
 
@@ -37,7 +37,7 @@ async function fillAndSubmit(
   await user.click(screen.getByRole("button", { name: "Create" }));
 }
 
-describe("CreateUserForm", () => {
+describe("UserForm", () => {
   describe("rendering", () => {
     it("renders Name, Email and Password fields", () => {
       setup();

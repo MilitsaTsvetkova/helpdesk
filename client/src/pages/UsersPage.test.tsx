@@ -1,4 +1,4 @@
-import { screen, waitFor, fireEvent } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import axios from "axios";
@@ -117,22 +117,18 @@ describe("UsersPage", () => {
       expect(screen.queryByRole("heading", { name: "Create User" })).not.toBeInTheDocument();
     });
 
-    it("closes when the backdrop is clicked", async () => {
-      await openModal();
-
-      const modalCard = screen.getByRole("heading", { name: "Create User" }).closest(".bg-white")!;
-      fireEvent.click(modalCard.parentElement!);
+    it("closes when the dialog's X button is clicked", async () => {
+      const user = await openModal();
+      await user.click(screen.getByRole("button", { name: "Close" }));
 
       expect(screen.queryByRole("heading", { name: "Create User" })).not.toBeInTheDocument();
     });
 
-    it("does not close when the modal card itself is clicked", async () => {
-      await openModal();
+    it("closes when Escape is pressed", async () => {
+      const user = await openModal();
+      await user.keyboard("{Escape}");
 
-      const modalCard = screen.getByRole("heading", { name: "Create User" }).closest(".bg-white")!;
-      fireEvent.click(modalCard);
-
-      expect(screen.getByRole("heading", { name: "Create User" })).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Create User" })).not.toBeInTheDocument();
     });
 
     it("closes and refetches the list after a successful submission", async () => {

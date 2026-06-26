@@ -2,7 +2,13 @@ import { useState } from "react";
 import axios from "axios";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { CreateUserForm } from "@/components/CreateUserForm";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { UserForm } from "@/components/UserForm";
 import { UsersTable, type User } from "@/components/UsersTable";
 
 async function fetchUsers(): Promise<User[]> {
@@ -12,6 +18,7 @@ async function fetchUsers(): Promise<User[]> {
 
 export function UsersPage() {
   const [open, setOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
 
   const { data: users = [], isPending, error } = useQuery({
     queryKey: ["users"],
@@ -25,19 +32,30 @@ export function UsersPage() {
         <Button onClick={() => setOpen(true)}>Create User</Button>
       </div>
 
-      <UsersTable users={users} isPending={isPending} error={error} />
+      <UsersTable users={users} isPending={isPending} error={error} onEdit={setEditingUser} />
 
-      {open && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-          onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
-        >
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
-            <h2 className="text-lg font-semibold text-slate-800 mb-5">Create User</h2>
-            <CreateUserForm onClose={() => setOpen(false)} />
-          </div>
-        </div>
-      )}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create User</DialogTitle>
+          </DialogHeader>
+          <UserForm onClose={() => setOpen(false)} />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!editingUser}
+        onOpenChange={(isOpen) => { if (!isOpen) setEditingUser(null); }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit User</DialogTitle>
+          </DialogHeader>
+          {editingUser && (
+            <UserForm user={editingUser} onClose={() => setEditingUser(null)} />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
