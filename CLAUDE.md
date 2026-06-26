@@ -61,6 +61,33 @@ shadcn/ui is installed manually for Tailwind v4 compatibility. Components live i
 - CSS entry: `src/index.css` with `@import "tailwindcss"` + `@layer base` for design tokens + `@theme inline` for Tailwind variable mapping
 - `components.json` has `tailwind.config: ""` (empty) per v4 convention
 
+## Shared Code (`core` package)
+
+The `core` workspace package (`core/src/`) holds code that is used by both `client` and `server`. It is a Bun workspace dependency — no build step needed, both sides import directly from TypeScript source via the package's `exports` field.
+
+**When to add something to `core`:**
+- A Zod schema (and its inferred type) that is validated on the server and also used in a client form
+- A shared type or constant that would otherwise be duplicated
+
+**When NOT to use `core`:**
+- Anything browser-specific (DOM, React, etc.)
+- Anything server-specific (Prisma, Express, etc.)
+- One-off types that only exist on one side
+
+**Usage:**
+
+```ts
+// core/src/schemas/user.ts
+import { z } from "zod";
+export const createUserSchema = z.object({ ... });
+export type CreateUserData = z.infer<typeof createUserSchema>;
+
+// client or server
+import { createUserSchema, type CreateUserData } from "core";
+```
+
+To add a new shared module: create a file under `core/src/`, export it from `core/src/index.ts`, then import with `from "core"` on either side.
+
 ## Data Validation
 
 **Library**: Zod v4 (`"zod": "^4.4.3"`) — installed on both client and server.

@@ -209,7 +209,7 @@ describe("UsersPage", () => {
         await user.click(screen.getByRole("button", { name: "Create" }));
 
         await waitFor(() => {
-          expect(screen.getByText("Please enter a valid email address.")).toBeInTheDocument();
+          expect(screen.getByText("A valid email is required.")).toBeInTheDocument();
         });
         expect(mockedAxios.post).not.toHaveBeenCalled();
       });

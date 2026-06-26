@@ -2,7 +2,7 @@ import { useState } from "react";
 import axios from "axios";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { createUserSchema, type CreateUserData } from "core";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Table,
@@ -32,13 +32,6 @@ type User = {
   createdAt: string;
 };
 
-const createUserSchema = z.object({
-  name: z.string().min(3, "Name must be at least 3 characters."),
-  email: z.email("Please enter a valid email address."),
-  password: z.string().min(8, "Password must be at least 8 characters."),
-});
-
-type CreateUserData = z.infer<typeof createUserSchema>;
 
 async function fetchUsers(): Promise<User[]> {
   const res = await axios.get<User[]>("/api/users", { withCredentials: true });

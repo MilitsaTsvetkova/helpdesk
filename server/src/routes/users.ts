@@ -1,15 +1,9 @@
 import bcrypt from "bcryptjs";
 import { Router } from "express";
-import { z } from "zod";
+import { createUserSchema } from "core";
 import { prisma } from "../lib/prisma";
 import { requireAdmin } from "../middleware/requireAdmin";
 import { requireAuth } from "../middleware/requireAuth";
-
-const createUserSchema = z.object({
-  name: z.string().trim().min(3, "Name must be at least 3 characters."),
-  email: z.email("A valid email is required."),
-  password: z.string().min(8, "Password must be at least 8 characters."),
-});
 
 const router = Router();
 

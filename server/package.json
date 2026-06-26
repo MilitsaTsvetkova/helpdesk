@@ -15,6 +15,7 @@
     "@prisma/client": "^7.8.0",
     "bcryptjs": "^3.0.3",
     "better-auth": "^1.6.20",
+    "core": "workspace:*",
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",
     "express": "^4.21.2",
