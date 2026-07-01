@@ -39,6 +39,8 @@ export function LoginPage() {
     const { error: err } = await authSignIn.email(data);
     if (err) {
       form.setError("root", { message: err.message ?? "Login failed" });
+    } else {
+      navigate("/", { replace: true });
     }
   }
 

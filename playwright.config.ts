@@ -54,10 +54,11 @@ export default defineConfig({
       env: {
         DATABASE_URL: TEST_DB_URL,
         PORT: String(SERVER_PORT),
+        BETTER_AUTH_URL: `http://localhost:${SERVER_PORT}`,
         SESSION_SECRET: 'test-session-secret-do-not-use-in-prod',
         BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET ?? 'test-better-auth-secret-do-not-use-in-prod',
         CORS_ORIGINS: `http://localhost:${CLIENT_PORT}`,
-        RATE_LIMIT_MAX: '100',
+        RATE_LIMIT_MAX: '1000',
       },
     },
     {

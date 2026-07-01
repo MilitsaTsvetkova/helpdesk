@@ -22,6 +22,8 @@
 import { test, expect } from '@playwright/test';
 import { LoginPage } from '../../pages/LoginPage';
 
+const USER_EMAIL = process.env.TEST_USER_EMAIL ?? 'testuser@example.com';
+const USER_PASSWORD = process.env.TEST_USER_PASSWORD ?? 'testpassword123';
 const ADMIN_EMAIL = process.env.TEST_ADMIN_EMAIL ?? 'testadmin@example.com';
 const ADMIN_PASSWORD = process.env.TEST_ADMIN_PASSWORD ?? 'adminpassword123';
 
@@ -92,6 +94,12 @@ test.describe('Authenticated access — regular user', () => {
     await expect(page.getByRole('heading', { name: 'Welcome to Helpdesk' })).toBeVisible();
   });
 
+  test('redirects an unknown path inside the app to / (catch-all route)', async ({ page }) => {
+    await page.goto('/this-does-not-exist');
+    await page.waitForURL('/');
+    await expect(page.getByRole('heading', { name: 'Welcome to Helpdesk' })).toBeVisible();
+  });
+
   test('logout clears the session and redirects to /login', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByRole('heading', { name: 'Welcome to Helpdesk' })).toBeVisible();
@@ -105,6 +113,13 @@ test.describe('Authenticated access — regular user', () => {
   });
 
   test('cannot access / after logging out', async ({ page }) => {
+    // The prior "logout" test invalidates the shared session token server-side.
+    // Re-authenticate via API so this test starts with a fresh valid session.
+    await page.request.post('/api/auth/sign-in/email', {
+      data: { email: USER_EMAIL, password: USER_PASSWORD },
+      headers: { 'Content-Type': 'application/json' },
+    });
+
     // Log out
     await page.goto('/');
     await page.getByRole('navigation').getByRole('button', { name: 'Logout' }).click();
@@ -114,12 +129,6 @@ test.describe('Authenticated access — regular user', () => {
     await page.goto('/');
     await page.waitForURL('/login');
     await expect(page.getByLabel('Email')).toBeVisible();
-  });
-
-  test('redirects an unknown path inside the app to / (catch-all route)', async ({ page }) => {
-    await page.goto('/this-does-not-exist');
-    await page.waitForURL('/');
-    await expect(page.getByRole('heading', { name: 'Welcome to Helpdesk' })).toBeVisible();
   });
 });
 
