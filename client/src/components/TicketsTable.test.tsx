@@ -1,5 +1,5 @@
 import { screen } from "@testing-library/react";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { TicketsTable, type Ticket } from "./TicketsTable";
 import { renderWithQuery } from "@/test/render-with-query";
 
@@ -30,6 +30,8 @@ function render_(props: { tickets?: Ticket[]; isPending?: boolean; error?: Error
       tickets={props.tickets ?? []}
       isPending={props.isPending ?? false}
       error={props.error ?? null}
+      sorting={[]}
+      onSortingChange={vi.fn()}
     />
   );
 }

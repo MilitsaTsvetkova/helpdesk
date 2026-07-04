@@ -6,7 +6,18 @@ import { requireAuth } from "../middleware/requireAuth";
 
 const router = Router();
 
-router.get("/", requireAuth, async (_req, res) => {
+const SORTABLE_FIELDS = ["subject", "fromName", "status", "createdAt"] as const;
+type SortableField = (typeof SORTABLE_FIELDS)[number];
+
+router.get("/", requireAuth, async (req, res) => {
+  const rawSortBy = req.query.sortBy as string | undefined;
+  const rawSortOrder = req.query.sortOrder as string | undefined;
+
+  const sortBy: SortableField = SORTABLE_FIELDS.includes(rawSortBy as SortableField)
+    ? (rawSortBy as SortableField)
+    : "createdAt";
+  const sortOrder: "asc" | "desc" = rawSortOrder === "asc" ? "asc" : "desc";
+
   const tickets = await prisma.ticket.findMany({
     select: {
       id: true,
@@ -17,7 +28,7 @@ router.get("/", requireAuth, async (_req, res) => {
       source: true,
       createdAt: true,
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: { [sortBy]: sortOrder },
   });
   res.json(tickets);
 });

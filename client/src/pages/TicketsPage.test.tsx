@@ -33,11 +33,14 @@ describe("TicketsPage", () => {
   });
 
   describe("data fetching", () => {
-    it("calls GET /api/tickets with withCredentials on mount", async () => {
+    it("calls GET /api/tickets with withCredentials and default sort params on mount", async () => {
       mockedAxios.get = vi.fn().mockResolvedValue({ data: [] });
       renderWithQuery(<TicketsPage />);
       await waitFor(() => {
-        expect(mockedAxios.get).toHaveBeenCalledWith("/api/tickets", { withCredentials: true });
+        expect(mockedAxios.get).toHaveBeenCalledWith("/api/tickets", {
+          params: { sortBy: "createdAt", sortOrder: "desc" },
+          withCredentials: true,
+        });
       });
     });
 
