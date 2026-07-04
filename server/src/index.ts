@@ -6,6 +6,7 @@ import rateLimit from "express-rate-limit";
 import { toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth";
 import usersRouter from "./routes/users";
+import ticketsRouter from "./routes/tickets";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -30,6 +31,9 @@ const authLimiter = rateLimit({
 app.use("/api/auth/sign-in", authLimiter);
 app.all("/api/auth/*", toNodeHandler(auth));
 
+// Inbound emails can include quoted history; allow a larger body for that endpoint.
+app.use("/api/tickets/inbound-email", express.json({ limit: "512kb" }));
+
 app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: false, limit: "10kb" }));
 
@@ -38,6 +42,7 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.use("/api/users", usersRouter);
+app.use("/api/tickets", ticketsRouter);
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);

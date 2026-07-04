@@ -12,6 +12,18 @@ enum Role {
   AGENT
 }
 
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketSource {
+  EMAIL
+  WEB
+}
+
 model User {
   id            String    @id
   name          String
@@ -61,6 +73,21 @@ model Account {
 
   @@index([userId])
   @@map("account")
+}
+
+model Ticket {
+  id        Int          @id @default(autoincrement())
+  subject   String
+  body      String
+  fromEmail String
+  fromName  String
+  status    TicketStatus @default(OPEN)
+  source    TicketSource @default(EMAIL)
+  messageId String?      @unique
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@map("ticket")
 }
 
 model Verification {

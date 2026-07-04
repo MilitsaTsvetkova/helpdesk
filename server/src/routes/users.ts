@@ -1,19 +1,10 @@
 import bcrypt from "bcryptjs";
-import { Router, type Response } from "express";
-import { type ZodType } from "zod";
+import { Router } from "express";
 import { createUserSchema, editUserSchema, Role } from "core";
 import { prisma } from "../lib/prisma";
+import { validate } from "../lib/validate";
 import { requireAdmin } from "../middleware/requireAdmin";
 import { requireAuth } from "../middleware/requireAuth";
-
-function validate<T>(schema: ZodType<T>, body: unknown, res: Response): T | null {
-  const result = schema.safeParse(body);
-  if (!result.success) {
-    res.status(400).json({ error: result.error.issues[0].message });
-    return null;
-  }
-  return result.data;
-}
 
 const router = Router();
 

@@ -1,0 +1,16 @@
+export const TicketStatus = {
+  OPEN: "OPEN",
+  IN_PROGRESS: "IN_PROGRESS",
+  RESOLVED: "RESOLVED",
+  CLOSED: "CLOSED",
+} as const;
+
+export type TicketStatus = (typeof TicketStatus)[keyof typeof TicketStatus];
+
+export const TicketSource = {
+  EMAIL: "EMAIL",
+  WEB: "WEB",
+} as const;
+
+export type TicketSource = (typeof TicketSource)[keyof typeof TicketSource];
+

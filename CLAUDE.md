@@ -132,23 +132,14 @@ const form = useForm<FormData>({ resolver: zodResolver(schema) });
 
 ### Server (Express routes)
 
-Use `safeParse` — never `parse` (which throws). Return the first issue message on `400`:
+Use the `validate` helper from `server/src/lib/validate.ts` — never call `safeParse` inline or use `parse` (which throws). It returns typed data on success, or sends a `400` and returns `null`:
 
 ```ts
-import { z } from "zod";
+import { validate } from "../lib/validate";
 
-const createUserSchema = z.object({
-  name: z.string().min(3, "Name must be at least 3 characters."),
-  email: z.email("A valid email is required."),
-  password: z.string().min(8, "Password must be at least 8 characters."),
-});
-
-const result = createUserSchema.safeParse(req.body);
-if (!result.success) {
-  res.status(400).json({ error: result.error.issues[0].message });
-  return;
-}
-const { name, email } = result.data; // fully typed
+const data = validate(createUserSchema, req.body, res);
+if (!data) return;
+const { name, email } = data; // fully typed
 ```
 
 ### Zod v4 notes
