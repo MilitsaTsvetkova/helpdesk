@@ -2,8 +2,25 @@ import { Router } from "express";
 import { inboundEmailSchema } from "core";
 import { prisma } from "../lib/prisma";
 import { validate } from "../lib/validate";
+import { requireAuth } from "../middleware/requireAuth";
 
 const router = Router();
+
+router.get("/", requireAuth, async (_req, res) => {
+  const tickets = await prisma.ticket.findMany({
+    select: {
+      id: true,
+      subject: true,
+      fromEmail: true,
+      fromName: true,
+      status: true,
+      source: true,
+      createdAt: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+  res.json(tickets);
+});
 
 // Strips HTML tags to produce a plain-text fallback body.
 function htmlToText(html: string): string {

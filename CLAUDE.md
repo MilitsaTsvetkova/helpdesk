@@ -16,17 +16,47 @@ AI-powered ticket management system. See `project-scope.md` for full feature lis
 
 ```
 helpdesk/
+├── core/                     Shared code (Zod schemas, enums, types)
+│   └── src/
+│       ├── schemas/          Zod schemas + inferred types (user.ts, ticket.ts)
+│       ├── roles.ts          Role const object
+│       ├── tickets.ts        TicketStatus / TicketSource const objects
+│       └── index.ts          re-exports everything
 ├── client/                   React SPA
 │   ├── components.json       shadcn/ui config
 │   └── src/
 │       ├── components/
-│       │   └── ui/           shadcn/ui primitives (Button, Input, Label, Form)
+│       │   ├── ui/           shadcn/ui primitives (Button, Input, Label, …)
+│       │   ├── Navbar.tsx
+│       │   ├── TicketsTable.tsx
+│       │   └── UsersTable.tsx
+│       ├── contexts/
+│       │   └── AuthContext.tsx
 │       ├── lib/
 │       │   └── utils.ts      cn() helper (clsx + tailwind-merge)
 │       ├── pages/
+│       │   ├── LoginPage.tsx
+│       │   ├── TicketsPage.tsx
+│       │   └── UsersPage.tsx
 │       └── index.css         Tailwind import + shadcn CSS variables
 ├── server/                   Express API
+│   ├── prisma/
+│   │   ├── migrations/
+│   │   ├── schema.prisma
+│   │   └── seed.ts           creates the ADMIN seed user
 │   └── src/
+│       ├── lib/
+│       │   ├── auth.ts       Better Auth instance
+│       │   ├── prisma.ts     PrismaClient singleton
+│       │   └── validate.ts   validate() helper for Express routes
+│       ├── middleware/
+│       │   ├── requireAdmin.ts
+│       │   └── requireAuth.ts
+│       ├── routes/
+│       │   ├── tickets.ts    GET /api/tickets, POST /api/tickets/inbound-email
+│       │   └── users.ts      CRUD /api/users
+│       └── index.ts          app entry point
+├── e2e/                      Playwright E2E tests
 ├── docker-compose.yml
 └── .env.example
 ```
@@ -34,11 +64,14 @@ helpdesk/
 ## Dev Commands
 
 ```bash
-bun run dev:server   # Express on :3000
-bun run dev:client   # Vite on :5173
+bun run dev:server          # Express on :3000
+bun run dev:client          # Vite on :5173
+cd server && bun run seed   # create/restore the ADMIN seed user (run after any DB reset)
 ```
 
 Vite proxies `/api/*` → `http://localhost:3000`.
+
+The seed reads `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` from `server/.env`. Run it any time the dev DB is reset — without it, no admin user exists and sign-in will fail.
 
 ## Data Fetching
 
@@ -46,6 +79,22 @@ Vite proxies `/api/*` → `http://localhost:3000`.
 - Use **TanStack Query** (`useQuery`, `useMutation`) for all server state — no raw `useEffect`/`useState` for fetching
 - `QueryClientProvider` is already mounted in `main.tsx`
 - Extract query functions as standalone `async function` above the component, not inline
+
+## Access Control
+
+**Server middleware** — two guards in `server/src/middleware/`:
+- `requireAuth` — rejects unauthenticated requests with `401`. Use on all private endpoints.
+- `requireAdmin` — rejects non-admin sessions with `403`. Apply after `requireAuth` on admin-only endpoints.
+
+**Client route guards** — two wrapper components in `client/src/components/`:
+- `<ProtectedRoute>` — redirects to `/login` if no session. Wraps the entire authenticated shell in `App.tsx`.
+- `<AdminRoute>` — redirects to `/` if the user is not an `ADMIN`. Wrap admin-only pages (e.g. `/users`).
+
+**Navbar links** — show links conditionally based on `user.role`:
+- Links visible to all authenticated users (e.g. Tickets): render unconditionally inside `<ProtectedRoute>`.
+- Admin-only links (e.g. Users): gate with `user?.role === Role.ADMIN`.
+
+**Inbound email webhook** (`POST /api/tickets/inbound-email`) is intentionally public — no session required, called by the email provider. Protect it with `INBOUND_EMAIL_WEBHOOK_SECRET` instead (see `.env.example`).
 
 ## UI Components
 

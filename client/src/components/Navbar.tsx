@@ -10,6 +10,9 @@ export function Navbar() {
     <nav className="flex items-center justify-between px-6 h-14 bg-slate-800 text-slate-50 shadow">
       <div className="flex items-center gap-6">
         <Link to="/" className="text-base font-semibold tracking-wide">Helpdesk</Link>
+        <Link to="/tickets" className="text-sm text-slate-300 hover:text-slate-50">
+          Tickets
+        </Link>
         {user?.role === Role.ADMIN && (
           <Link to="/users" className="text-sm text-slate-300 hover:text-slate-50">
             Users

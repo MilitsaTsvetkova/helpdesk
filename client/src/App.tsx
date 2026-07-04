@@ -3,6 +3,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminRoute } from "./components/AdminRoute";
 import { Navbar } from "./components/Navbar";
 import { LoginPage } from "./pages/LoginPage";
+import { TicketsPage } from "./pages/TicketsPage";
 import { UsersPage } from "./pages/UsersPage";
 import "./index.css";
 
@@ -25,6 +26,7 @@ export default function App() {
             <Navbar />
             <Routes>
               <Route path="/" element={<Home />} />
+              <Route path="/tickets" element={<TicketsPage />} />
               <Route
                 path="/users"
                 element={
