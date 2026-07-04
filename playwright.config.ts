@@ -59,6 +59,7 @@ export default defineConfig({
         BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET ?? 'test-better-auth-secret-do-not-use-in-prod',
         CORS_ORIGINS: `http://localhost:${CLIENT_PORT}`,
         RATE_LIMIT_MAX: '1000',
+        INBOUND_EMAIL_WEBHOOK_SECRET: 'test-inbound-webhook-secret-e2e',
       },
     },
     {
