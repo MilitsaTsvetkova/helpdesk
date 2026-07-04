@@ -100,9 +100,21 @@ test.describe('Authenticated access — regular user', () => {
     await expect(page.getByRole('heading', { name: 'Welcome to Helpdesk' })).toBeVisible();
   });
 
+});
+
+// ---------------------------------------------------------------------------
+// Logout — uses a fresh login so the shared user.json session is never destroyed.
+// These tests MUST NOT use storageState: they create their own session and
+// destroy only that session, keeping user.json valid for parallel tests.
+// ---------------------------------------------------------------------------
+
+test.describe('Logout behaviour', () => {
   test('logout clears the session and redirects to /login', async ({ page }) => {
-    await page.goto('/');
-    await expect(page.getByRole('heading', { name: 'Welcome to Helpdesk' })).toBeVisible();
+    // Log in fresh — do not reuse user.json so we don't invalidate it.
+    const loginPage = new LoginPage(page);
+    await loginPage.goto();
+    await loginPage.login(USER_EMAIL, USER_PASSWORD);
+    await page.waitForURL('/');
 
     const navbar = page.getByRole('navigation');
     await navbar.getByRole('button', { name: 'Logout' }).click();
@@ -113,19 +125,17 @@ test.describe('Authenticated access — regular user', () => {
   });
 
   test('cannot access / after logging out', async ({ page }) => {
-    // The prior "logout" test invalidates the shared session token server-side.
-    // Re-authenticate via API so this test starts with a fresh valid session.
-    await page.request.post('/api/auth/sign-in/email', {
-      data: { email: USER_EMAIL, password: USER_PASSWORD },
-      headers: { 'Content-Type': 'application/json' },
-    });
+    // Log in fresh — do not reuse user.json so we don't invalidate it.
+    const loginPage = new LoginPage(page);
+    await loginPage.goto();
+    await loginPage.login(USER_EMAIL, USER_PASSWORD);
+    await page.waitForURL('/');
 
     // Log out
-    await page.goto('/');
     await page.getByRole('navigation').getByRole('button', { name: 'Logout' }).click();
     await page.waitForURL('/login');
 
-    // Attempt to navigate to a protected route
+    // Attempt to navigate to a protected route — should redirect back to /login
     await page.goto('/');
     await page.waitForURL('/login');
     await expect(page.getByLabel('Email')).toBeVisible();
