@@ -1,5 +1,5 @@
 import { screen } from "@testing-library/react";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { UsersTable, type User } from "./UsersTable";
 import { renderWithQuery } from "@/test/render-with-query";
 
@@ -106,6 +106,46 @@ describe("UsersTable", () => {
     it("applies slate styling to the AGENT badge", () => {
       render({ users: USERS });
       expect(screen.getByText("AGENT")).toHaveClass("bg-slate-100", "text-slate-600");
+    });
+  });
+
+  describe("action buttons", () => {
+    it("renders Edit and Delete buttons for each user row", () => {
+      render({ users: USERS });
+      expect(screen.getAllByRole("button", { name: "Edit" })).toHaveLength(USERS.length);
+      expect(screen.getAllByRole("button", { name: "Delete" })).toHaveLength(USERS.length);
+    });
+
+    it("Delete button is disabled for ADMIN-role users", () => {
+      render({ users: USERS });
+      // USERS[0] is Alice Admin — first Delete button corresponds to her row
+      const deleteButtons = screen.getAllByRole("button", { name: "Delete" });
+      expect(deleteButtons[0]).toBeDisabled();
+    });
+
+    it("Delete button is enabled for AGENT-role users", () => {
+      render({ users: USERS });
+      // USERS[1] is Bob Agent — second Delete button
+      const deleteButtons = screen.getAllByRole("button", { name: "Delete" });
+      expect(deleteButtons[1]).toBeEnabled();
+    });
+
+    it("calls onEdit with the user when Edit is clicked", () => {
+      const onEdit = vi.fn();
+      renderWithQuery(
+        <UsersTable users={USERS} isPending={false} error={null} onEdit={onEdit} />
+      );
+      screen.getAllByRole("button", { name: "Edit" })[0].click();
+      expect(onEdit).toHaveBeenCalledWith(USERS[0]);
+    });
+
+    it("calls onDelete with the user when Delete is clicked for an AGENT", () => {
+      const onDelete = vi.fn();
+      renderWithQuery(
+        <UsersTable users={USERS} isPending={false} error={null} onDelete={onDelete} />
+      );
+      screen.getAllByRole("button", { name: "Delete" })[1].click(); // Bob Agent
+      expect(onDelete).toHaveBeenCalledWith(USERS[1]);
     });
   });
 });

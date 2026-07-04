@@ -230,11 +230,35 @@ bun run test:watch    # watch mode
 
 ## E2E Testing
 
-Use the **`playwright-e2e-writer`** agent to write Playwright tests — invoke it after completing any significant UI feature, page, form, or auth flow. Never write E2E tests inline; always delegate to the agent.
+**Use E2E tests only for critical paths that require real browser + real backend integration.** Most scenarios should be covered by Vitest component tests instead.
+
+### When to write an E2E test
+
+Write E2E for things that cannot be adequately tested at the component level:
+- **Critical happy paths** — does a real user action (login, create, delete) complete against the real DB and reflect in the UI?
+- **Full-stack data flow** — does data created via one API endpoint appear correctly via another (e.g. inbound email → ticket list)?
+- **Auth/redirect flows** — unauthenticated redirect to `/login`, role-based redirect to `/`
+- **Real server errors** — duplicate-email conflict, wrong password (requires real backend response)
+- **Ordering / sorting** — multiple seeded rows, DOM order verified against real DB timestamps
+
+### When to use component tests instead
+
+Use Vitest + React Testing Library for:
+- Static rendering (headings, labels, buttons, form fields)
+- Client-side validation messages
+- Loading / skeleton states
+- Empty states
+- API called with correct URL and `withCredentials`
+- Dialog open/close behavior (cancel, Escape, X button)
+- Badge colours and conditional classes
+
+### Writing E2E tests
+
+Use the **`playwright-e2e-writer`** agent — invoke it after completing a significant feature. Never write E2E tests inline; always delegate to the agent.
 
 ```
 Agent: playwright-e2e-writer
-Trigger: after finishing a feature, page, or user flow that needs browser-level coverage
+Trigger: after finishing a feature that needs real browser + backend coverage
 ```
 
 The agent has full knowledge of the test infrastructure (ports, DB setup, run commands, POM conventions). See `.claude/agents/playwright-e2e-writer.md` for its configuration.

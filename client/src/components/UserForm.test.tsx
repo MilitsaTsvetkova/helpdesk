@@ -171,4 +171,62 @@ describe("UserForm", () => {
       expect(onClose).toHaveBeenCalledOnce();
     });
   });
+
+  describe("edit mode", () => {
+    const EXISTING_USER = {
+      id: "1",
+      name: "Alice Admin",
+      email: "alice@example.com",
+      role: "ADMIN" as const,
+      createdAt: "2024-01-15T00:00:00.000Z",
+    };
+
+    function setupEdit() {
+      const onClose = vi.fn();
+      const user = userEvent.setup();
+      renderWithQuery(<UserForm user={EXISTING_USER} onClose={onClose} />);
+      return { user, onClose };
+    }
+
+    it("pre-populates the name and email fields with the existing values", () => {
+      setupEdit();
+      expect(screen.getByLabelText("Name")).toHaveValue(EXISTING_USER.name);
+      expect(screen.getByLabelText("Email")).toHaveValue(EXISTING_USER.email);
+    });
+
+    it("labels the password field 'New password' and leaves it empty", () => {
+      setupEdit();
+      expect(screen.getByLabelText("New password")).toBeInTheDocument();
+      expect(screen.getByLabelText("New password")).toHaveValue("");
+    });
+
+    it("renders Save and Cancel buttons (not Create)", () => {
+      setupEdit();
+      expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Create" })).not.toBeInTheDocument();
+    });
+
+    it("calls PUT /api/users/:id with form data and withCredentials", async () => {
+      mockedAxios.put = vi.fn().mockResolvedValue({ data: EXISTING_USER });
+      const { user } = setupEdit();
+      await user.click(screen.getByRole("button", { name: "Save" }));
+      await waitFor(() => {
+        expect(mockedAxios.put).toHaveBeenCalledWith(
+          `/api/users/${EXISTING_USER.id}`,
+          { name: EXISTING_USER.name, email: EXISTING_USER.email, password: "" },
+          { withCredentials: true },
+        );
+      });
+    });
+
+    it("shows 'Saving…' on the submit button while the request is in flight", async () => {
+      mockedAxios.put = vi.fn(() => new Promise(() => {}));
+      const { user } = setupEdit();
+      await user.click(screen.getByRole("button", { name: "Save" }));
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: "Saving…" })).toBeInTheDocument();
+      });
+    });
+  });
 });

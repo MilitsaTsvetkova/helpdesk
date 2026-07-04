@@ -1,17 +1,22 @@
 /**
  * User management — E2E tests for /users (admin-only page).
  *
- * Covers the full CRUD lifecycle:
+ * Covers critical integration paths:
  *   - Table view: seeded users visible, role badges, disabled Delete for ADMINs
- *   - Create user: happy path, field validation, duplicate-email conflict,
- *     loading state, cancel
- *   - Edit user: pre-populated form, name/email update, password change,
- *     duplicate-email conflict, cancel
- *   - Delete user: confirmation dialog content, cancel, confirm, loading state
+ *   - Create user: happy path (new user appears in table), server duplicate-email error
+ *   - Edit user: name/email update reflects in table, password change accepted,
+ *     blank password keeps existing one, server duplicate-email error
+ *   - Delete user: confirm removes user from table
+ *
+ * The following are covered by component tests and excluded here:
+ *   - Dialog content / field rendering (UserForm.test.tsx, UsersPage.test.tsx)
+ *   - Client-side validation messages (UserForm.test.tsx)
+ *   - Loading states "Creating…" / "Saving…" / "Deleting…" (UserForm.test.tsx, UsersPage.test.tsx)
+ *   - Cancel closes dialog (UsersPage.test.tsx)
+ *   - Delete dialog title/description/cancel (UsersPage.test.tsx)
  *
  * Approach: integration tests against the real test backend (:3001) and
- * test database (helpdesk_test). No API mocking except for loading-state tests
- * where a page.route() delay makes the in-flight UI observable.
+ * test database (helpdesk_test).
  *
  * NOTE: redirect tests (unauthenticated → /login, non-admin → /) are already
  * covered in e2e/tests/auth/protected-routes.spec.ts and are not duplicated.
@@ -96,20 +101,6 @@ test.describe('Users page — create user', () => {
     await usersPage.openCreateDialog();
   });
 
-  test('opens the dialog with title "Create User"', async () => {
-    await expect(usersPage.dialogTitle).toHaveText('Create User');
-  });
-
-  test('dialog contains Name, Email, and Password fields', async () => {
-    await expect(usersPage.nameInput).toBeVisible();
-    await expect(usersPage.emailInput).toBeVisible();
-    await expect(usersPage.getPasswordInput('create')).toBeVisible();
-  });
-
-  test('Name input has autofocus in create mode', async () => {
-    await expect(usersPage.nameInput).toBeFocused();
-  });
-
   test('creates a new user and shows them in the table', async ({ page }) => {
     const name = `New Agent ${uid()}`;
     const email = `agent.${uid()}@test.example`;
@@ -123,61 +114,6 @@ test.describe('Users page — create user', () => {
     await expect(page.getByRole('cell', { name })).toBeVisible();
   });
 
-  test('shows "Creating…" on the submit button while the request is in flight', async ({ page }) => {
-    // Delay only POST requests so the loading state is observable
-    await page.route('**/api/users', async (route) => {
-      if (route.request().method() === 'POST') {
-        await new Promise<void>((resolve) => setTimeout(resolve, 400));
-      }
-      await route.continue();
-    });
-
-    await usersPage.fillCreateForm(`Loading ${uid()}`, `loading.${uid()}@test.example`, 'securepass123');
-    await usersPage.dialogSubmitButton.click();
-
-    await expect(page.getByRole('button', { name: 'Creating…' })).toBeVisible();
-    // Request eventually completes and dialog closes
-    await expect(usersPage.dialog).not.toBeVisible({ timeout: 10_000 });
-  });
-
-  test('shows a name validation error when name is fewer than 3 characters', async () => {
-    await usersPage.nameInput.fill('AB');
-    await usersPage.emailInput.fill('valid@example.com');
-    await usersPage.getPasswordInput('create').fill('securepass123');
-    await usersPage.dialogSubmitButton.click();
-
-    await expect(usersPage.getFieldError('Name')).toBeVisible();
-    await expect(usersPage.getFieldError('Name')).toHaveText('Name must be at least 3 characters.');
-  });
-
-  test('shows an email validation error for an invalid email address', async () => {
-    await usersPage.nameInput.fill('Valid Name');
-    await usersPage.emailInput.fill('not-an-email');
-    await usersPage.getPasswordInput('create').fill('securepass123');
-    await usersPage.dialogSubmitButton.click();
-
-    await expect(usersPage.getFieldError('Email')).toBeVisible();
-    await expect(usersPage.getFieldError('Email')).toHaveText('A valid email is required.');
-  });
-
-  test('shows a password validation error when password is fewer than 8 characters', async () => {
-    await usersPage.nameInput.fill('Valid Name');
-    await usersPage.emailInput.fill('valid@example.com');
-    await usersPage.getPasswordInput('create').fill('short');
-    await usersPage.dialogSubmitButton.click();
-
-    await expect(usersPage.getFieldError('Password')).toBeVisible();
-    await expect(usersPage.getFieldError('Password')).toHaveText('Password must be at least 8 characters.');
-  });
-
-  test('shows all field errors when the form is submitted empty', async () => {
-    await usersPage.dialogSubmitButton.click();
-
-    await expect(usersPage.getFieldError('Name')).toBeVisible();
-    await expect(usersPage.getFieldError('Email')).toBeVisible();
-    await expect(usersPage.getFieldError('Password')).toBeVisible();
-  });
-
   test('shows a server error when the email is already taken', async () => {
     const ADMIN_EMAIL = process.env.TEST_ADMIN_EMAIL ?? 'testadmin@example.com';
 
@@ -188,15 +124,6 @@ test.describe('Users page — create user', () => {
     await expect(usersPage.dialogFormError).toHaveText('A user with that email already exists.');
     // Dialog must remain open so the user can correct the error
     await expect(usersPage.dialog).toBeVisible();
-  });
-
-  test('Cancel closes the dialog without creating a user', async ({ page }) => {
-    const name = `Ghost User ${uid()}`;
-    await usersPage.fillCreateForm(name, `ghost.${uid()}@test.example`, 'securepass123');
-    await usersPage.dialogCancelButton.click();
-
-    await expect(usersPage.dialog).not.toBeVisible();
-    await expect(page.getByRole('cell', { name })).not.toBeVisible();
   });
 });
 
@@ -227,27 +154,6 @@ test.describe('Users page — edit user', () => {
     // Reload so the table picks up the newly created user
     await page.reload();
     await expect(page.getByRole('cell', { name: targetName })).toBeVisible();
-  });
-
-  test('opens the dialog with title "Edit User"', async () => {
-    await usersPage.getEditButton(targetName).click();
-    await expect(usersPage.dialog).toBeVisible();
-    await expect(usersPage.dialogTitle).toHaveText('Edit User');
-  });
-
-  test('pre-populates the form with the existing name and email', async () => {
-    await usersPage.getEditButton(targetName).click();
-    await expect(usersPage.dialog).toBeVisible();
-
-    await expect(usersPage.nameInput).toHaveValue(targetName);
-    await expect(usersPage.emailInput).toHaveValue(targetEmail);
-  });
-
-  test('New password field is empty and optional in edit mode', async () => {
-    await usersPage.getEditButton(targetName).click();
-    await expect(usersPage.dialog).toBeVisible();
-
-    await expect(usersPage.getPasswordInput('edit')).toHaveValue('');
   });
 
   test('updates name and email and reflects the change in the table', async ({ page }) => {
@@ -292,22 +198,6 @@ test.describe('Users page — edit user', () => {
     await expect(page.getByRole('cell', { name: targetName })).toBeVisible();
   });
 
-  test('shows "Saving…" on the submit button while the request is in flight', async ({ page }) => {
-    await page.route('**/api/users/**', async (route) => {
-      if (route.request().method() === 'PUT') {
-        await new Promise<void>((resolve) => setTimeout(resolve, 400));
-      }
-      await route.continue();
-    });
-
-    await usersPage.getEditButton(targetName).click();
-    await expect(usersPage.dialog).toBeVisible();
-    await usersPage.dialogSubmitButton.click();
-
-    await expect(page.getByRole('button', { name: 'Saving…' })).toBeVisible();
-    await expect(usersPage.dialog).not.toBeVisible({ timeout: 10_000 });
-  });
-
   test('shows a server error when updating to an already-taken email', async () => {
     const ADMIN_EMAIL = process.env.TEST_ADMIN_EMAIL ?? 'testadmin@example.com';
 
@@ -320,19 +210,6 @@ test.describe('Users page — edit user', () => {
     await expect(usersPage.dialogFormError).toBeVisible();
     await expect(usersPage.dialogFormError).toHaveText('A user with that email already exists.');
     await expect(usersPage.dialog).toBeVisible();
-  });
-
-  test('Cancel closes the edit dialog without saving changes', async ({ page }) => {
-    await usersPage.getEditButton(targetName).click();
-    await expect(usersPage.dialog).toBeVisible();
-
-    await usersPage.nameInput.fill('Should Not Be Saved');
-    await usersPage.dialogCancelButton.click();
-
-    await expect(usersPage.dialog).not.toBeVisible();
-    // Original name still in the table
-    await expect(page.getByRole('cell', { name: targetName })).toBeVisible();
-    await expect(page.getByRole('cell', { name: 'Should Not Be Saved' })).not.toBeVisible();
   });
 });
 
@@ -361,31 +238,6 @@ test.describe('Users page — delete user', () => {
     await expect(page.getByRole('cell', { name: targetName })).toBeVisible();
   });
 
-  test('clicking Delete opens the confirmation alert dialog', async () => {
-    await usersPage.getDeleteButton(targetName).click();
-    await expect(usersPage.alertDialog).toBeVisible();
-  });
-
-  test('confirmation dialog title includes the user name', async () => {
-    await usersPage.getDeleteButton(targetName).click();
-    await expect(usersPage.alertDialogTitle).toHaveText(`Delete ${targetName}?`);
-  });
-
-  test('confirmation dialog shows "This action cannot be undone."', async () => {
-    await usersPage.getDeleteButton(targetName).click();
-    await expect(usersPage.alertDialogDescription).toBeVisible();
-  });
-
-  test('Cancel closes the dialog and leaves the user in the table', async ({ page }) => {
-    await usersPage.getDeleteButton(targetName).click();
-    await expect(usersPage.alertDialog).toBeVisible();
-
-    await usersPage.alertDialogCancelButton.click();
-
-    await expect(usersPage.alertDialog).not.toBeVisible();
-    await expect(page.getByRole('cell', { name: targetName })).toBeVisible();
-  });
-
   test('confirming delete removes the user from the table', async ({ page }) => {
     await usersPage.getDeleteButton(targetName).click();
     await expect(usersPage.alertDialog).toBeVisible();
@@ -395,23 +247,5 @@ test.describe('Users page — delete user', () => {
     // Dialog closes and TanStack Query refetches — user row disappears
     await expect(usersPage.alertDialog).not.toBeVisible();
     await expect(page.getByRole('cell', { name: targetName })).not.toBeVisible();
-  });
-
-  test('shows "Deleting…" on the confirm button while the request is in flight', async ({ page }) => {
-    // Delay DELETE requests so the in-flight loading state is observable
-    await page.route('**/api/users/**', async (route) => {
-      if (route.request().method() === 'DELETE') {
-        await new Promise<void>((resolve) => setTimeout(resolve, 400));
-      }
-      await route.continue();
-    });
-
-    await usersPage.getDeleteButton(targetName).click();
-    await expect(usersPage.alertDialog).toBeVisible();
-    await usersPage.alertDialogConfirmButton.click();
-
-    await expect(page.getByRole('button', { name: 'Deleting…' })).toBeVisible();
-    // Wait for the request to complete and the dialog to close
-    await expect(usersPage.alertDialog).not.toBeVisible({ timeout: 10_000 });
   });
 });

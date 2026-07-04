@@ -1,12 +1,15 @@
 /**
- * Login flow — integration tests against the real test backend + test DB.
+ * Login flow — E2E tests against the real test backend + test DB.
  *
- * Covers:
- *   - Happy path: valid credentials → redirect to /
- *   - Client-side validation: invalid email format, password too short, empty fields
- *   - Server-side error: wrong password, non-existent email
+ * Covers critical paths only:
+ *   - Happy path: valid credentials → redirect to /, navbar shows user
+ *   - Server-side errors: wrong password, non-existent email, retry after failure
+ *   - Keyboard: Enter key submits the form
  *   - Already-authenticated redirect: visiting /login when logged in → /
- *   - Keyboard accessibility: form is submittable via Enter key
+ *
+ * Client-side validation (email format, password length, empty-field errors,
+ * "Signing in…" loading state, autofocus, tab order) are covered in
+ * client/src/pages/LoginPage.test.tsx.
  *
  * Approach: integration (real backend on :3001, real test DB helpdesk_test).
  * No API mocking — tests verify the full request/response cycle.
@@ -32,24 +35,6 @@ test.describe('Login page', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Page rendering
-  // ---------------------------------------------------------------------------
-
-  test('renders the login form with all required elements', async ({ page }) => {
-    await expect(page).toHaveTitle(/Helpdesk|Vite/i);
-    await expect(page.getByRole('heading', { name: 'Helpdesk' })).toBeVisible();
-    await expect(page.getByText('Sign in to your account')).toBeVisible();
-    await expect(loginPage.emailInput).toBeVisible();
-    await expect(loginPage.passwordInput).toBeVisible();
-    await expect(loginPage.submitButton).toBeVisible();
-    await expect(loginPage.submitButton).toBeEnabled();
-  });
-
-  test('email input has autofocus on page load', async () => {
-    await expect(loginPage.emailInput).toBeFocused();
-  });
-
-  // ---------------------------------------------------------------------------
   // Happy path
   // ---------------------------------------------------------------------------
 
@@ -64,66 +49,10 @@ test.describe('Login page', () => {
     await loginPage.login(USER_EMAIL, USER_PASSWORD);
     await page.waitForURL('/');
 
-    // Navbar displays user.name if set, otherwise user.email.
-    // The seed script creates the user with name "Test User", so that appears.
     const navbar = page.getByRole('navigation');
     await expect(navbar).toBeVisible();
     // Match either the seeded name or the email — both are valid depending on seed data
     await expect(navbar.getByText(/Test User|testuser@example/)).toBeVisible();
-  });
-
-  test('shows "Signing in…" on the submit button while request is in flight', async ({ page }) => {
-    // Slow down the auth API so the loading state is observable
-    await page.route('**/api/auth/**', async (route) => {
-      await new Promise((resolve) => setTimeout(resolve, 400));
-      await route.continue();
-    });
-
-    await loginPage.emailInput.fill(USER_EMAIL);
-    await loginPage.passwordInput.fill(USER_PASSWORD);
-    await loginPage.submitButton.click();
-
-    await expect(page.getByRole('button', { name: 'Signing in…' })).toBeVisible();
-    // Eventually succeeds
-    await page.waitForURL('/');
-  });
-
-  // ---------------------------------------------------------------------------
-  // Client-side validation (zod — no network request is made)
-  // ---------------------------------------------------------------------------
-
-  test('shows email format error for an invalid email address', async () => {
-    await loginPage.fillEmail('not-an-email');
-    await loginPage.fillPassword(USER_PASSWORD);
-    await loginPage.submit();
-
-    await expect(loginPage.emailError).toBeVisible();
-    await expect(loginPage.emailError).toHaveText('Invalid email address');
-  });
-
-  test('shows password length error when password is fewer than 8 characters', async () => {
-    await loginPage.fillEmail(USER_EMAIL);
-    await loginPage.fillPassword('short');
-    await loginPage.submit();
-
-    await expect(loginPage.passwordError).toBeVisible();
-    await expect(loginPage.passwordError).toHaveText('Password must be at least 8 characters');
-  });
-
-  test('shows validation errors for both fields when form is submitted empty', async () => {
-    await loginPage.submit();
-
-    await expect(loginPage.emailError).toBeVisible();
-    await expect(loginPage.passwordError).toBeVisible();
-  });
-
-  test('shows email error only when email is invalid and password is valid', async () => {
-    await loginPage.fillEmail('bad-email');
-    await loginPage.fillPassword(USER_PASSWORD);
-    await loginPage.submit();
-
-    await expect(loginPage.emailError).toBeVisible();
-    await expect(loginPage.passwordError).not.toBeVisible();
   });
 
   // ---------------------------------------------------------------------------
@@ -176,15 +105,6 @@ test.describe('Login page', () => {
 
     await page.waitForURL('/');
     await expect(page.getByRole('heading', { name: 'Welcome to Helpdesk' })).toBeVisible();
-  });
-
-  test('can tab through all form controls in order', async ({ page }) => {
-    // Start from email (autofocused), tab to password, tab to submit button
-    await expect(loginPage.emailInput).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(loginPage.passwordInput).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(loginPage.submitButton).toBeFocused();
   });
 });
 

@@ -131,6 +131,16 @@ describe("UsersPage", () => {
       expect(screen.queryByRole("heading", { name: "Create User" })).not.toBeInTheDocument();
     });
 
+    it("opens the Edit User modal when Edit is clicked", async () => {
+      mockedAxios.get = vi.fn().mockResolvedValue({ data: USERS });
+      const user = userEvent.setup();
+      renderWithQuery(<UsersPage />);
+      await waitFor(() => expect(screen.getByText("Alice Admin")).toBeInTheDocument());
+      await user.click(screen.getAllByRole("button", { name: "Edit" })[0]);
+      expect(screen.getByRole("heading", { name: "Edit User" })).toBeInTheDocument();
+      expect(screen.getByLabelText("Name")).toHaveValue("Alice Admin");
+    });
+
     it("closes and refetches the list after a successful submission", async () => {
       const NEW_USER = {
         id: "3",
@@ -158,6 +168,60 @@ describe("UsersPage", () => {
       });
       await waitFor(() => {
         expect(screen.getByText("New User")).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe("delete dialog", () => {
+    async function openDeleteDialog() {
+      const user = userEvent.setup();
+      mockedAxios.get = vi.fn().mockResolvedValue({ data: USERS });
+      renderWithQuery(<UsersPage />);
+      await waitFor(() => expect(screen.getByText("Bob Agent")).toBeInTheDocument());
+      // USERS[1] is Bob Agent (AGENT role) — Delete is enabled for him
+      const deleteButtons = screen.getAllByRole("button", { name: "Delete" });
+      await user.click(deleteButtons[1]);
+      return user;
+    }
+
+    it("opens with the correct title and description when Delete is clicked", async () => {
+      await openDeleteDialog();
+      expect(screen.getByText("Delete Bob Agent?")).toBeInTheDocument();
+      expect(screen.getByText("This action cannot be undone.")).toBeInTheDocument();
+    });
+
+    it("closes without calling DELETE when Cancel is clicked", async () => {
+      mockedAxios.delete = vi.fn();
+      const user = await openDeleteDialog();
+      await user.click(screen.getByRole("button", { name: "Cancel" }));
+      expect(screen.queryByText("Delete Bob Agent?")).not.toBeInTheDocument();
+      expect(mockedAxios.delete).not.toHaveBeenCalled();
+    });
+
+    it("calls DELETE /api/users/:id with withCredentials and closes on success", async () => {
+      mockedAxios.delete = vi.fn().mockResolvedValue({});
+      mockedAxios.get = vi.fn()
+        .mockResolvedValueOnce({ data: USERS })
+        .mockResolvedValueOnce({ data: [USERS[0]] });
+      const user = userEvent.setup();
+      renderWithQuery(<UsersPage />);
+      await waitFor(() => expect(screen.getByText("Bob Agent")).toBeInTheDocument());
+      await user.click(screen.getAllByRole("button", { name: "Delete" })[1]);
+      await user.click(screen.getByRole("button", { name: "Delete" }));
+      await waitFor(() => {
+        expect(mockedAxios.delete).toHaveBeenCalledWith("/api/users/2", { withCredentials: true });
+      });
+      await waitFor(() => {
+        expect(screen.queryByText("Delete Bob Agent?")).not.toBeInTheDocument();
+      });
+    });
+
+    it("shows 'Deleting…' on the confirm button while the request is in flight", async () => {
+      mockedAxios.delete = vi.fn(() => new Promise(() => {}));
+      const user = await openDeleteDialog();
+      await user.click(screen.getByRole("button", { name: "Delete" }));
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: "Deleting…" })).toBeInTheDocument();
       });
     });
   });

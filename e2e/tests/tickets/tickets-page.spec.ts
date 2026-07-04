@@ -1,34 +1,29 @@
 /**
  * Tickets list page — E2E tests for /tickets.
  *
- * Covers:
- *   - "Tickets" navbar link is visible for authenticated users and navigates
- *     to /tickets
- *   - Page heading renders
+ * Covers critical integration paths:
+ *   - Clicking the Tickets nav link navigates to /tickets
  *   - Seeded ticket data (subject, fromName, fromEmail, status badge) appears
- *     in the table
+ *     in the table — verifies the full inbound-email → DB → API → UI flow
  *   - Tickets are ordered newest first
- *   - "No tickets found." empty-state renders when the API returns []
  *   - Unauthenticated visitors are redirected to /login
  *   - An agent (non-admin) user can access /tickets without being redirected
  *
- * Approach: integration tests against the real test backend (:3001) and
- * helpdesk_test database. The empty-state test uses page.route() to mock the
- * API returning [] — other tests in the suite seed real tickets so the DB is
- * never empty during a full run.
+ * The following are covered by component tests and excluded here:
+ *   - "Tickets" heading renders (TicketsPage.test.tsx)
+ *   - Tickets nav link is visible in navbar (TicketsPage.test.tsx)
+ *   - "No tickets found." empty state (TicketsTable.test.tsx)
  *
- * Ticket seeding uses POST /api/tickets/inbound-email with the webhook secret.
- * That endpoint is public (no session required), so seeding works regardless
- * of which storageState is active.
+ * Approach: integration tests against the real test backend (:3001) and
+ * helpdesk_test database. Ticket seeding uses POST /api/tickets/inbound-email
+ * with the webhook secret — no auth session required.
  *
  * NOTE: redirect tests for admin-only routes are covered in
  * e2e/tests/auth/protected-routes.spec.ts and are not duplicated here.
  *
  * Auth:
- *   - Most tests use the agent user storageState (e2e/.auth/user.json) saved
- *     by auth.setup.ts — this exercises the "all authenticated users" access.
+ *   - Most tests use the agent user storageState (e2e/.auth/user.json)
  *   - The unauthenticated redirect test uses the default browser context
- *     (no storageState).
  *
  * Prerequisites:
  *   - auth.setup.ts must have completed (writes e2e/.auth/user.json and
@@ -70,16 +65,11 @@ async function seedTicket(
 }
 
 // =============================================================================
-// Navbar link
+// Navbar navigation
 // =============================================================================
 
 test.describe('Tickets nav link', () => {
   test.use({ storageState: 'e2e/.auth/user.json' });
-
-  test('Tickets link is visible in the navbar for an authenticated user', async ({ page }) => {
-    await page.goto('/');
-    await expect(page.getByRole('navigation').getByRole('link', { name: 'Tickets' })).toBeVisible();
-  });
 
   test('clicking the Tickets nav link navigates to /tickets', async ({ page }) => {
     await page.goto('/');
@@ -90,21 +80,7 @@ test.describe('Tickets nav link', () => {
 });
 
 // =============================================================================
-// Page heading
-// =============================================================================
-
-test.describe('Tickets page — heading', () => {
-  test.use({ storageState: 'e2e/.auth/user.json' });
-
-  test('renders the "Tickets" h1 heading', async ({ page }) => {
-    const ticketsPage = new TicketsPage(page);
-    await ticketsPage.goto();
-    await expect(ticketsPage.heading).toBeVisible();
-  });
-});
-
-// =============================================================================
-// Table content — seeded data
+// Table content — seeded data (full stack integration)
 // =============================================================================
 
 test.describe('Tickets page — table content', () => {
@@ -175,35 +151,6 @@ test.describe('Tickets page — ordering', () => {
     expect(indexNewer).toBeGreaterThan(-1);
     // The newer ticket (higher createdAt) must be earlier in the list
     expect(indexNewer).toBeLessThan(indexOlder);
-  });
-});
-
-// =============================================================================
-// Empty state
-// =============================================================================
-
-test.describe('Tickets page — empty state', () => {
-  test.use({ storageState: 'e2e/.auth/user.json' });
-
-  test('shows "No tickets found." when the API returns an empty list', async ({ page }) => {
-    // Mock GET /api/tickets to return [] — other tests seed real tickets so
-    // the helpdesk_test DB is never actually empty during a full suite run.
-    await page.route('**/api/tickets', async (route) => {
-      if (route.request().method() === 'GET') {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: '[]',
-        });
-      } else {
-        await route.continue();
-      }
-    });
-
-    const ticketsPage = new TicketsPage(page);
-    await ticketsPage.goto();
-
-    await expect(ticketsPage.emptyState).toBeVisible();
   });
 });
 
