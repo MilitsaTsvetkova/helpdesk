@@ -35,7 +35,9 @@ export class TicketDetailPage {
 
   async goto(id: number): Promise<void> {
     await this.page.goto(`/tickets/${id}`);
-    await this.backLink.waitFor();
+    // Wait for ticket data to load — comboboxes are only rendered once the
+    // useQuery resolves, not during the skeleton/loading state.
+    await this.page.getByRole('combobox').first().waitFor();
   }
 
   /**
@@ -46,6 +48,6 @@ export class TicketDetailPage {
    * "HARDWARE", "Uncategorized" not "uncategorized").
    */
   getCategoryTrigger(currentLabel: string): Locator {
-    return this.page.getByRole('combobox', { name: currentLabel });
+    return this.page.getByRole('combobox').filter({ hasText: currentLabel });
   }
 }

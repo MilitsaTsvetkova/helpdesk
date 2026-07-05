@@ -211,8 +211,9 @@ test.describe('Tickets list — category column', () => {
     const ticketsPage = new TicketsPage(page);
     await ticketsPage.goto();
 
-    // The row for this ticket should display "Software" in the Category column
-    await expect(ticketsPage.getRow(subject).getByText('Software')).toBeVisible();
+    // The row for this ticket should display "Software" in the Category column.
+    // Use exact: true to avoid matching "Software" within the subject text itself.
+    await expect(ticketsPage.getRow(subject).getByText('Software', { exact: true })).toBeVisible();
   });
 
   test('shows an em dash for a ticket with null category', async ({ page }) => {
