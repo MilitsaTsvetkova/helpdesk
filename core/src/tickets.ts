@@ -24,3 +24,10 @@ export const TicketSource = {
 
 export type TicketSource = (typeof TicketSource)[keyof typeof TicketSource];
 
+export const ReplySenderType = {
+  AGENT: "AGENT",
+  CUSTOMER: "CUSTOMER",
+} as const;
+
+export type ReplySenderType = (typeof ReplySenderType)[keyof typeof ReplySenderType];
+

@@ -1,6 +1,12 @@
 import { z } from "zod";
 import { TicketCategory, TicketStatus, TicketSource } from "../tickets";
 
+export const createReplySchema = z.object({
+  body: z.string().min(1, "Reply body is required."),
+});
+
+export type CreateReplyData = z.infer<typeof createReplySchema>;
+
 export const patchTicketSchema = z.object({
   assignedToId: z.string().nullable().optional(),
   status: z.enum(Object.values(TicketStatus) as [TicketStatus, ...TicketStatus[]]).optional(),

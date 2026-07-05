@@ -40,6 +40,7 @@ const TICKET = {
   fromName: "John Doe",
   status: "OPEN" as const,
   source: "EMAIL" as const,
+  category: null as string | null,
   assignedTo: null as { id: string; name: string; email: string } | null,
   createdAt: "2024-06-01T10:00:00.000Z",
   updatedAt: "2024-06-01T12:00:00.000Z",
@@ -50,9 +51,30 @@ const AGENTS = [
   { id: "agent-2", name: "Bob Martinez" },
 ];
 
-function mockGet(ticket = TICKET, agents = AGENTS) {
+const AGENT_REPLY = {
+  id: 1,
+  body: "This is an agent reply.",
+  senderType: "AGENT" as const,
+  createdAt: "2024-06-01T11:00:00.000Z",
+  author: { id: "agent-1", name: "Alice Chen", email: "alice@example.com" },
+};
+
+const CUSTOMER_REPLY = {
+  id: 2,
+  body: "This is a customer reply.",
+  senderType: "CUSTOMER" as const,
+  createdAt: "2024-06-01T12:00:00.000Z",
+  author: { id: "agent-1", name: "Alice Chen", email: "alice@example.com" },
+};
+
+function mockGet(
+  ticket = TICKET,
+  agents = AGENTS,
+  replies: typeof AGENT_REPLY[] = [],
+) {
   mockedAxios.get = vi.fn().mockImplementation((url: string) => {
     if (url === "/api/users/assignable") return Promise.resolve({ data: agents });
+    if (url === "/api/tickets/42/replies") return Promise.resolve({ data: replies });
     return Promise.resolve({ data: ticket });
   });
 }
@@ -340,6 +362,145 @@ describe("TicketDetailPage", () => {
 
       await waitFor(() => {
         expect(screen.getByText("Failed to save")).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe("reply thread", () => {
+    it("does not show the replies section when there are no replies", async () => {
+      mockGet();
+      renderWithQuery(<TicketDetailPage />);
+      await waitFor(() => screen.getByRole("heading", { name: "Keyboard not working" }));
+      expect(screen.queryByText(/Replies \(/)).not.toBeInTheDocument();
+    });
+
+    it("shows the replies count when there are replies", async () => {
+      mockGet(TICKET, AGENTS, [AGENT_REPLY]);
+      renderWithQuery(<TicketDetailPage />);
+      await waitFor(() => {
+        expect(screen.getByText("Replies (1)")).toBeInTheDocument();
+      });
+    });
+
+    it("renders the reply body and author name", async () => {
+      mockGet(TICKET, AGENTS, [AGENT_REPLY]);
+      renderWithQuery(<TicketDetailPage />);
+      await waitFor(() => {
+        expect(screen.getByText("This is an agent reply.")).toBeInTheDocument();
+        // Alice Chen also appears in the assignment dropdown, so check for multiple
+        expect(screen.getAllByText("Alice Chen").length).toBeGreaterThan(0);
+      });
+    });
+
+    it("shows an Agent badge for AGENT replies", async () => {
+      mockGet(TICKET, AGENTS, [AGENT_REPLY]);
+      renderWithQuery(<TicketDetailPage />);
+      await waitFor(() => {
+        expect(screen.getByText("Agent")).toBeInTheDocument();
+      });
+    });
+
+    it("shows a Customer badge for CUSTOMER replies", async () => {
+      mockGet(TICKET, AGENTS, [CUSTOMER_REPLY]);
+      renderWithQuery(<TicketDetailPage />);
+      await waitFor(() => {
+        expect(screen.getByText("Customer")).toBeInTheDocument();
+      });
+    });
+
+    it("calls GET /api/tickets/42/replies with withCredentials", async () => {
+      mockGet();
+      renderWithQuery(<TicketDetailPage />);
+      await waitFor(() => {
+        expect(mockedAxios.get).toHaveBeenCalledWith("/api/tickets/42/replies", {
+          withCredentials: true,
+        });
+      });
+    });
+  });
+
+  describe("reply form", () => {
+    it("renders the Reply label and textarea", async () => {
+      mockGet();
+      renderWithQuery(<TicketDetailPage />);
+      await waitFor(() => screen.getByRole("heading", { name: "Keyboard not working" }));
+      expect(screen.getByText("Reply")).toBeInTheDocument();
+      expect(screen.getByPlaceholderText("Write a reply…")).toBeInTheDocument();
+    });
+
+    it("disables the Send reply button when the textarea is empty", async () => {
+      mockGet();
+      renderWithQuery(<TicketDetailPage />);
+      await waitFor(() => screen.getByRole("heading", { name: "Keyboard not working" }));
+      expect(screen.getByRole("button", { name: /send reply/i })).toBeDisabled();
+    });
+
+    it("enables the Send reply button when the textarea has text", async () => {
+      mockGet();
+      renderWithQuery(<TicketDetailPage />);
+      await waitFor(() => screen.getByRole("heading", { name: "Keyboard not working" }));
+      fireEvent.change(screen.getByPlaceholderText("Write a reply…"), {
+        target: { value: "Hello!" },
+      });
+      expect(screen.getByRole("button", { name: /send reply/i })).not.toBeDisabled();
+    });
+
+    it("calls POST /api/tickets/42/replies with the body and withCredentials", async () => {
+      mockGet();
+      mockedAxios.post = vi.fn().mockResolvedValue({ data: { ...AGENT_REPLY, body: "Hello!" } });
+      renderWithQuery(<TicketDetailPage />);
+      await waitFor(() => screen.getByRole("heading", { name: "Keyboard not working" }));
+      fireEvent.change(screen.getByPlaceholderText("Write a reply…"), {
+        target: { value: "Hello!" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: /send reply/i }));
+      await waitFor(() => {
+        expect(mockedAxios.post).toHaveBeenCalledWith(
+          "/api/tickets/42/replies",
+          { body: "Hello!" },
+          { withCredentials: true },
+        );
+      });
+    });
+
+    it("clears the textarea after a successful reply", async () => {
+      mockGet();
+      mockedAxios.post = vi.fn().mockResolvedValue({ data: { ...AGENT_REPLY, body: "Hello!" } });
+      renderWithQuery(<TicketDetailPage />);
+      await waitFor(() => screen.getByRole("heading", { name: "Keyboard not working" }));
+      const textarea = screen.getByPlaceholderText("Write a reply…");
+      fireEvent.change(textarea, { target: { value: "Hello!" } });
+      fireEvent.click(screen.getByRole("button", { name: /send reply/i }));
+      await waitFor(() => {
+        expect(textarea).toHaveValue("");
+      });
+    });
+
+    it("appends the new reply to the thread after a successful submit", async () => {
+      mockGet();
+      mockedAxios.post = vi.fn().mockResolvedValue({ data: { ...AGENT_REPLY, body: "New reply!" } });
+      renderWithQuery(<TicketDetailPage />);
+      await waitFor(() => screen.getByRole("heading", { name: "Keyboard not working" }));
+      fireEvent.change(screen.getByPlaceholderText("Write a reply…"), {
+        target: { value: "New reply!" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: /send reply/i }));
+      await waitFor(() => {
+        expect(screen.getByText("New reply!")).toBeInTheDocument();
+      });
+    });
+
+    it("shows 'Failed to send reply' when the POST fails", async () => {
+      mockGet();
+      mockedAxios.post = vi.fn().mockRejectedValue(new Error("Server error"));
+      renderWithQuery(<TicketDetailPage />);
+      await waitFor(() => screen.getByRole("heading", { name: "Keyboard not working" }));
+      fireEvent.change(screen.getByPlaceholderText("Write a reply…"), {
+        target: { value: "Hello!" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: /send reply/i }));
+      await waitFor(() => {
+        expect(screen.getByText("Failed to send reply")).toBeInTheDocument();
       });
     });
   });

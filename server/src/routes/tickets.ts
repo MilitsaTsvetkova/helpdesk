@@ -1,4 +1,4 @@
-import { inboundEmailSchema, patchTicketSchema, TicketCategory, TicketStatus, TicketSource } from "core";
+import { inboundEmailSchema, patchTicketSchema, createReplySchema, TicketCategory, TicketStatus, TicketSource } from "core";
 import { Router } from "express";
 import { type TicketWhereInput } from "../generated/prisma/models/Ticket";
 import { prisma } from "../lib/prisma";
@@ -170,6 +170,69 @@ router.get("/:id", requireAuth, async (req, res) => {
   }
 
   res.json(ticket);
+});
+
+router.get("/:id/replies", requireAuth, async (req, res) => {
+  const id = parseInt(req.params.id as string);
+  if (isNaN(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid ticket id." });
+    return;
+  }
+
+  const ticket = await prisma.ticket.findUnique({ where: { id }, select: { id: true } });
+  if (!ticket) {
+    res.status(404).json({ error: "Ticket not found." });
+    return;
+  }
+
+  const replies = await prisma.ticketReply.findMany({
+    where: { ticketId: id },
+    orderBy: { createdAt: "asc" },
+    select: {
+      id: true,
+      body: true,
+      senderType: true,
+      createdAt: true,
+      author: { select: { id: true, name: true, email: true } },
+    },
+  });
+
+  res.json(replies);
+});
+
+router.post("/:id/replies", requireAuth, async (req, res) => {
+  const id = parseInt(req.params.id as string);
+  if (isNaN(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid ticket id." });
+    return;
+  }
+
+  const data = validate(createReplySchema, req.body, res);
+  if (!data) return;
+
+  const ticket = await prisma.ticket.findUnique({ where: { id }, select: { id: true } });
+  if (!ticket) {
+    res.status(404).json({ error: "Ticket not found." });
+    return;
+  }
+
+  const reply = await prisma.ticketReply.create({
+    data: {
+      ticketId: id,
+      body: data.body,
+      senderType: "AGENT",
+      authorId: req.user!.id,
+    },
+    select: {
+      id: true,
+      body: true,
+      senderType: true,
+      createdAt: true,
+      author: { select: { id: true, name: true, email: true } },
+    },
+  });
+
+  res.status(201).json(reply);
 });
 
 // Strips HTML tags to produce a plain-text fallback body.

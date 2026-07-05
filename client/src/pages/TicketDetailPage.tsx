@@ -1,8 +1,11 @@
 import { useParams, Link } from "react-router-dom";
 import axios from "axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
-import { TicketCategory, TicketStatus, TicketSource } from "core";
+import { useRef, useState } from "react";
+import { ArrowLeft, Send } from "lucide-react";
+import { TicketCategory, TicketStatus, TicketSource, ReplySenderType } from "core";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -26,6 +29,14 @@ type TicketDetail = {
   assignedTo: AssignedUser | null;
   createdAt: string;
   updatedAt: string;
+};
+
+type TicketReply = {
+  id: number;
+  body: string;
+  senderType: ReplySenderType;
+  createdAt: string;
+  author: { id: string; name: string; email: string };
 };
 
 type TicketPatch = {
@@ -97,9 +108,25 @@ async function patchTicket(id: string, patch: TicketPatch): Promise<TicketDetail
   return res.data;
 }
 
+async function fetchReplies(id: string): Promise<TicketReply[]> {
+  const res = await axios.get<TicketReply[]>(`/api/tickets/${id}/replies`, {
+    withCredentials: true,
+  });
+  return res.data;
+}
+
+async function postReply(id: string, body: string): Promise<TicketReply> {
+  const res = await axios.post<TicketReply>(`/api/tickets/${id}/replies`, { body }, {
+    withCredentials: true,
+  });
+  return res.data;
+}
+
 export function TicketDetailPage() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
+  const [replyBody, setReplyBody] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const { data: ticket, isPending, error } = useQuery({
     queryKey: ["ticket", id],
@@ -112,10 +139,28 @@ export function TicketDetailPage() {
     queryFn: fetchAssignableUsers,
   });
 
+  const { data: replies = [] } = useQuery({
+    queryKey: ["ticket", id, "replies"],
+    queryFn: () => fetchReplies(id!),
+    enabled: !!id,
+  });
+
   const mutation = useMutation({
     mutationFn: (patch: TicketPatch) => patchTicket(id!, patch),
     onSuccess: (updated) => {
       queryClient.setQueryData(["ticket", id], updated);
+    },
+  });
+
+  const replyMutation = useMutation({
+    mutationFn: (body: string) => postReply(id!, body),
+    onSuccess: (newReply) => {
+      queryClient.setQueryData<TicketReply[]>(["ticket", id, "replies"], (old = []) => [
+        ...old,
+        newReply,
+      ]);
+      setReplyBody("");
+      textareaRef.current?.focus();
     },
   });
 
@@ -165,7 +210,7 @@ export function TicketDetailPage() {
 
       {ticket && (
         <div className="grid grid-cols-[1fr_260px] gap-8 items-start">
-          {/* Left: title + message */}
+          {/* Left: title + message + replies */}
           <div className="space-y-6">
             <h1 className="text-2xl font-semibold text-slate-800">{ticket.subject}</h1>
 
@@ -173,6 +218,72 @@ export function TicketDetailPage() {
               <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">Message</p>
               <div className="border border-slate-200 rounded-lg p-4 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
                 {ticket.body}
+              </div>
+            </div>
+
+            {/* Reply thread */}
+            {replies.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">
+                  Replies ({replies.length})
+                </p>
+                <div className="space-y-3">
+                  {replies.map((reply) => {
+                    const isAgent = reply.senderType === ReplySenderType.AGENT;
+                    return (
+                      <div
+                        key={reply.id}
+                        className={`border rounded-lg p-4 ${isAgent ? "border-sky-200 bg-sky-50" : "border-slate-200 bg-white"}`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-slate-700">{reply.author.name}</span>
+                            <span className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${isAgent ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-500"}`}>
+                              {isAgent ? "Agent" : "Customer"}
+                            </span>
+                          </div>
+                          <span className="text-xs text-slate-400">{formatDate(reply.createdAt)}</span>
+                        </div>
+                        <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{reply.body}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Reply form */}
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">Reply</p>
+              <div className="space-y-2">
+                <Textarea
+                  ref={textareaRef}
+                  value={replyBody}
+                  onChange={(e) => setReplyBody(e.target.value)}
+                  placeholder="Write a reply…"
+                  rows={4}
+                  className="text-sm resize-none"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && replyBody.trim()) {
+                      replyMutation.mutate(replyBody.trim());
+                    }
+                  }}
+                />
+                <div className="flex items-center justify-between">
+                  {replyMutation.isError && (
+                    <p className="text-xs text-red-500">Failed to send reply</p>
+                  )}
+                  <div className="ml-auto">
+                    <Button
+                      size="sm"
+                      onClick={() => replyMutation.mutate(replyBody.trim())}
+                      disabled={!replyBody.trim() || replyMutation.isPending}
+                    >
+                      <Send className="h-3.5 w-3.5 mr-1.5" />
+                      {replyMutation.isPending ? "Sending…" : "Send reply"}
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
