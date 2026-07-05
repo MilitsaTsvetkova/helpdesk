@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { inboundEmailSchema } from "core";
+import { type TicketWhereInput } from "../generated/prisma/models/Ticket";
+import { inboundEmailSchema, TicketStatus } from "core";
 import { prisma } from "../lib/prisma";
 import { validate } from "../lib/validate";
 import { requireAuth } from "../middleware/requireAuth";
@@ -9,14 +10,37 @@ const router = Router();
 const SORTABLE_FIELDS = ["subject", "fromName", "status", "createdAt"] as const;
 type SortableField = (typeof SORTABLE_FIELDS)[number];
 
+const VALID_STATUSES = Object.values(TicketStatus) as string[];
+
 router.get("/", requireAuth, async (req, res) => {
   const rawSortBy = req.query.sortBy as string | undefined;
   const rawSortOrder = req.query.sortOrder as string | undefined;
+  const rawSearch = req.query.search as string | undefined;
+  const rawStatus = req.query.status as string | undefined;
 
   const sortBy: SortableField = SORTABLE_FIELDS.includes(rawSortBy as SortableField)
     ? (rawSortBy as SortableField)
     : "createdAt";
   const sortOrder: "asc" | "desc" = rawSortOrder === "asc" ? "asc" : "desc";
+
+  const where: TicketWhereInput = {};
+
+  const search = rawSearch?.trim();
+  if (search) {
+    where.OR = [
+      { subject: { contains: search, mode: "insensitive" } },
+      { fromName: { contains: search, mode: "insensitive" } },
+      { fromEmail: { contains: search, mode: "insensitive" } },
+    ];
+  }
+
+  const statuses = rawStatus
+    ?.split(",")
+    .map((s) => s.trim())
+    .filter((s) => VALID_STATUSES.includes(s)) as TicketStatus[] | undefined;
+  if (statuses && statuses.length > 0) {
+    where.status = { in: statuses };
+  }
 
   const tickets = await prisma.ticket.findMany({
     select: {
@@ -28,6 +52,7 @@ router.get("/", requireAuth, async (req, res) => {
       source: true,
       createdAt: true,
     },
+    where,
     orderBy: { [sortBy]: sortOrder },
   });
   res.json(tickets);
