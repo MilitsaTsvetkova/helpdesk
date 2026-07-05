@@ -20,6 +20,18 @@ const TICKETS = [
   },
 ];
 
+function mockEmpty() {
+  mockedAxios.get = vi
+    .fn()
+    .mockResolvedValue({ data: { tickets: [], total: 0, page: 1, pageSize: 10, totalPages: 1 } });
+}
+
+function mockWithTickets() {
+  mockedAxios.get = vi.fn().mockResolvedValue({
+    data: { tickets: TICKETS, total: 1, page: 1, pageSize: 10, totalPages: 1 },
+  });
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
@@ -27,31 +39,31 @@ beforeEach(() => {
 describe("TicketsPage", () => {
   describe("layout", () => {
     it("renders the Tickets heading", () => {
-      mockedAxios.get = vi.fn().mockResolvedValue({ data: [] });
+      mockEmpty();
       renderWithQuery(<TicketsPage />);
       expect(screen.getByRole("heading", { name: "Tickets" })).toBeInTheDocument();
     });
 
     it("renders the search input", () => {
-      mockedAxios.get = vi.fn().mockResolvedValue({ data: [] });
+      mockEmpty();
       renderWithQuery(<TicketsPage />);
       expect(screen.getByPlaceholderText("Search subject, sender…")).toBeInTheDocument();
     });
 
     it("renders a Status dropdown trigger", () => {
-      mockedAxios.get = vi.fn().mockResolvedValue({ data: [] });
+      mockEmpty();
       renderWithQuery(<TicketsPage />);
       expect(screen.getByRole("button", { name: /Status/i })).toBeInTheDocument();
     });
   });
 
   describe("data fetching", () => {
-    it("calls GET /api/tickets with default sort params and no filter params on mount", async () => {
-      mockedAxios.get = vi.fn().mockResolvedValue({ data: [] });
+    it("calls GET /api/tickets with default params on mount", async () => {
+      mockEmpty();
       renderWithQuery(<TicketsPage />);
       await waitFor(() => {
         expect(mockedAxios.get).toHaveBeenCalledWith("/api/tickets", {
-          params: { sortBy: "createdAt", sortOrder: "desc" },
+          params: { sortBy: "createdAt", sortOrder: "desc", page: 1, pageSize: 10 },
           withCredentials: true,
         });
       });
@@ -72,7 +84,7 @@ describe("TicketsPage", () => {
     });
 
     it("renders tickets returned by the API", async () => {
-      mockedAxios.get = vi.fn().mockResolvedValue({ data: TICKETS });
+      mockWithTickets();
       renderWithQuery(<TicketsPage />);
       await waitFor(() => {
         expect(screen.getByText("Keyboard not working")).toBeInTheDocument();
@@ -82,7 +94,7 @@ describe("TicketsPage", () => {
 
   describe("filter bar", () => {
     it("selecting one status updates the trigger label to that status name", async () => {
-      mockedAxios.get = vi.fn().mockResolvedValue({ data: [] });
+      mockEmpty();
       const user = userEvent.setup();
       renderWithQuery(<TicketsPage />);
 
@@ -94,7 +106,7 @@ describe("TicketsPage", () => {
     });
 
     it("deselecting the only active status resets the trigger label to 'Status'", async () => {
-      mockedAxios.get = vi.fn().mockResolvedValue({ data: [] });
+      mockEmpty();
       const user = userEvent.setup();
       renderWithQuery(<TicketsPage />);
 
@@ -107,7 +119,7 @@ describe("TicketsPage", () => {
     });
 
     it("selecting multiple statuses shows a count in the trigger label", async () => {
-      mockedAxios.get = vi.fn().mockResolvedValue({ data: [] });
+      mockEmpty();
       const user = userEvent.setup();
       renderWithQuery(<TicketsPage />);
 
@@ -120,13 +132,66 @@ describe("TicketsPage", () => {
     });
 
     it("typing into the search input updates its value", async () => {
-      mockedAxios.get = vi.fn().mockResolvedValue({ data: [] });
+      mockEmpty();
       const user = userEvent.setup();
       renderWithQuery(<TicketsPage />);
 
       const input = screen.getByPlaceholderText("Search subject, sender…");
       await user.type(input, "keyboard");
       expect(input).toHaveValue("keyboard");
+    });
+  });
+
+  describe("pagination", () => {
+    it("shows the total ticket count", async () => {
+      mockEmpty();
+      renderWithQuery(<TicketsPage />);
+      await waitFor(() => {
+        expect(screen.getByText("0 tickets")).toBeInTheDocument();
+      });
+    });
+
+    it("shows singular 'ticket' for a single result", async () => {
+      mockWithTickets();
+      renderWithQuery(<TicketsPage />);
+      await waitFor(() => {
+        expect(screen.getByText("1 ticket")).toBeInTheDocument();
+      });
+    });
+
+    it("shows Page 1 of 1 by default", async () => {
+      mockEmpty();
+      renderWithQuery(<TicketsPage />);
+      await waitFor(() => {
+        expect(screen.getByText("Page 1 of 1")).toBeInTheDocument();
+      });
+    });
+
+    it("Previous button is disabled on page 1", async () => {
+      mockEmpty();
+      renderWithQuery(<TicketsPage />);
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
+      });
+    });
+
+    it("Next button is disabled when on the last page", async () => {
+      mockEmpty();
+      renderWithQuery(<TicketsPage />);
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+      });
+    });
+
+    it("Next button is enabled when more pages exist", async () => {
+      mockedAxios.get = vi.fn().mockResolvedValue({
+        data: { tickets: TICKETS, total: 15, page: 1, pageSize: 10, totalPages: 2 },
+      });
+      renderWithQuery(<TicketsPage />);
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: "Next" })).toBeEnabled();
+        expect(screen.getByText("Page 1 of 2")).toBeInTheDocument();
+      });
     });
   });
 });

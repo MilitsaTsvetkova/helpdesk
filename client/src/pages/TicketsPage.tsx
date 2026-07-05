@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { TicketsTable, type Ticket } from "@/components/TicketsTable";
+import { Pagination } from "@/components/Pagination";
 import { TicketStatus } from "core";
 
 const STATUS_LABELS: Record<TicketStatus, string> = {
@@ -19,6 +20,16 @@ const STATUS_LABELS: Record<TicketStatus, string> = {
   [TicketStatus.IN_PROGRESS]: "In Progress",
   [TicketStatus.RESOLVED]: "Resolved",
   [TicketStatus.CLOSED]: "Closed",
+};
+
+const PAGE_SIZE = 10;
+
+type TicketsPageData = {
+  tickets: Ticket[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
 };
 
 function useDebounce<T>(value: T, delay = 300): T {
@@ -34,8 +45,9 @@ async function fetchTickets(
   sorting: SortingState,
   search: string,
   statuses: TicketStatus[],
-): Promise<Ticket[]> {
-  const params: Record<string, string> = {};
+  page: number,
+): Promise<TicketsPageData> {
+  const params: Record<string, string | number> = { page, pageSize: PAGE_SIZE };
   if (sorting.length > 0) {
     params.sortBy = sorting[0].id;
     params.sortOrder = sorting[0].desc ? "desc" : "asc";
@@ -43,7 +55,7 @@ async function fetchTickets(
   if (search) params.search = search;
   if (statuses.length > 0) params.status = statuses.join(",");
 
-  const res = await axios.get<Ticket[]>("/api/tickets", {
+  const res = await axios.get<TicketsPageData>("/api/tickets", {
     params,
     withCredentials: true,
   });
@@ -56,13 +68,22 @@ export function TicketsPage() {
   ]);
   const [searchInput, setSearchInput] = useState("");
   const [statusFilter, setStatusFilter] = useState<TicketStatus[]>([]);
+  const [page, setPage] = useState(1);
 
   const debouncedSearch = useDebounce(searchInput);
 
-  const { data: tickets = [], isPending, error } = useQuery({
-    queryKey: ["tickets", sorting, debouncedSearch, statusFilter],
-    queryFn: () => fetchTickets(sorting, debouncedSearch, statusFilter),
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, statusFilter, sorting]);
+
+  const { data, isPending, error } = useQuery({
+    queryKey: ["tickets", sorting, debouncedSearch, statusFilter, page],
+    queryFn: () => fetchTickets(sorting, debouncedSearch, statusFilter, page),
   });
+
+  const tickets = data?.tickets ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = data?.totalPages ?? 1;
 
   function toggleStatus(status: TicketStatus) {
     setStatusFilter((prev) =>
@@ -124,6 +145,14 @@ export function TicketsPage() {
         error={error}
         sorting={sorting}
         onSortingChange={setSorting}
+      />
+
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        itemLabel="ticket"
+        onPageChange={setPage}
       />
     </div>
   );

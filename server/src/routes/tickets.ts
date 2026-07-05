@@ -17,11 +17,16 @@ router.get("/", requireAuth, async (req, res) => {
   const rawSortOrder = req.query.sortOrder as string | undefined;
   const rawSearch = req.query.search as string | undefined;
   const rawStatus = req.query.status as string | undefined;
+  const rawPage = req.query.page as string | undefined;
+  const rawPageSize = req.query.pageSize as string | undefined;
 
   const sortBy: SortableField = SORTABLE_FIELDS.includes(rawSortBy as SortableField)
     ? (rawSortBy as SortableField)
     : "createdAt";
   const sortOrder: "asc" | "desc" = rawSortOrder === "asc" ? "asc" : "desc";
+
+  const page = Math.max(1, parseInt(rawPage ?? "1") || 1);
+  const pageSize = Math.min(100, Math.max(1, parseInt(rawPageSize ?? "10") || 10));
 
   const where: TicketWhereInput = {};
 
@@ -42,20 +47,28 @@ router.get("/", requireAuth, async (req, res) => {
     where.status = { in: statuses };
   }
 
-  const tickets = await prisma.ticket.findMany({
-    select: {
-      id: true,
-      subject: true,
-      fromEmail: true,
-      fromName: true,
-      status: true,
-      source: true,
-      createdAt: true,
-    },
-    where,
-    orderBy: { [sortBy]: sortOrder },
-  });
-  res.json(tickets);
+  const select = {
+    id: true,
+    subject: true,
+    fromEmail: true,
+    fromName: true,
+    status: true,
+    source: true,
+    createdAt: true,
+  };
+
+  const [tickets, total] = await Promise.all([
+    prisma.ticket.findMany({
+      select,
+      where,
+      orderBy: { [sortBy]: sortOrder },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.ticket.count({ where }),
+  ]);
+
+  res.json({ tickets, total, page, pageSize, totalPages: Math.max(1, Math.ceil(total / pageSize)) });
 });
 
 // Strips HTML tags to produce a plain-text fallback body.
