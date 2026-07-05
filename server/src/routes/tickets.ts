@@ -5,6 +5,8 @@ import { prisma } from "../lib/prisma";
 import { validate } from "../lib/validate";
 import { requireAuth } from "../middleware/requireAuth";
 
+const UNASSIGNED = "unassigned";
+
 const router = Router();
 
 const SORTABLE_FIELDS = ["subject", "fromName", "status", "createdAt"] as const;
@@ -17,6 +19,7 @@ router.get("/", requireAuth, async (req, res) => {
   const rawSortOrder = req.query.sortOrder as string | undefined;
   const rawSearch = req.query.search as string | undefined;
   const rawStatus = req.query.status as string | undefined;
+  const rawAssignedTo = req.query.assignedTo as string | undefined;
   const rawPage = req.query.page as string | undefined;
   const rawPageSize = req.query.pageSize as string | undefined;
 
@@ -28,24 +31,37 @@ router.get("/", requireAuth, async (req, res) => {
   const page = Math.max(1, parseInt(rawPage ?? "1") || 1);
   const pageSize = Math.min(100, Math.max(1, parseInt(rawPageSize ?? "10") || 10));
 
-  const where: TicketWhereInput = {};
+  const andConditions: TicketWhereInput[] = [];
 
   const search = rawSearch?.trim();
   if (search) {
-    where.OR = [
-      { subject: { contains: search, mode: "insensitive" } },
-      { fromName: { contains: search, mode: "insensitive" } },
-      { fromEmail: { contains: search, mode: "insensitive" } },
-    ];
+    andConditions.push({
+      OR: [
+        { subject: { contains: search, mode: "insensitive" } },
+        { fromName: { contains: search, mode: "insensitive" } },
+        { fromEmail: { contains: search, mode: "insensitive" } },
+      ],
+    });
   }
 
   const statuses = rawStatus
     ?.split(",")
     .map((s) => s.trim())
-    .filter((s) => VALID_STATUSES.includes(s)) as TicketStatus[] | undefined;
+    .filter((s) => VALID_STATUSES.includes(s)) as TicketStatus[];
   if (statuses && statuses.length > 0) {
-    where.status = { in: statuses };
+    andConditions.push({ status: { in: statuses } });
   }
+
+  const assignedToTokens = rawAssignedTo?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
+  if (assignedToTokens.length > 0) {
+    const assignedToOr: TicketWhereInput[] = [];
+    const userIds = assignedToTokens.filter((t) => t !== UNASSIGNED);
+    if (userIds.length > 0) assignedToOr.push({ assignedToId: { in: userIds } });
+    if (assignedToTokens.includes(UNASSIGNED)) assignedToOr.push({ assignedToId: null });
+    if (assignedToOr.length > 0) andConditions.push({ OR: assignedToOr });
+  }
+
+  const where: TicketWhereInput = andConditions.length > 0 ? { AND: andConditions } : {};
 
   const select = {
     id: true,
@@ -55,6 +71,7 @@ router.get("/", requireAuth, async (req, res) => {
     status: true,
     source: true,
     createdAt: true,
+    assignedTo: { select: { id: true, name: true, email: true } },
   };
 
   const [tickets, total] = await Promise.all([
@@ -69,6 +86,25 @@ router.get("/", requireAuth, async (req, res) => {
   ]);
 
   res.json({ tickets, total, page, pageSize, totalPages: Math.max(1, Math.ceil(total / pageSize)) });
+});
+
+router.get("/:id", requireAuth, async (req, res) => {
+  const id = parseInt(req.params.id as string);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid ticket id." });
+    return;
+  }
+
+  const ticket = await prisma.ticket.findUnique({
+    where: { id },
+    include: { assignedTo: { select: { id: true, name: true, email: true } } },
+  });
+  if (!ticket) {
+    res.status(404).json({ error: "Ticket not found." });
+    return;
+  }
+
+  res.json(ticket);
 });
 
 // Strips HTML tags to produce a plain-text fallback body.

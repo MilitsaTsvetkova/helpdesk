@@ -4,6 +4,7 @@ import { AdminRoute } from "./components/AdminRoute";
 import { Navbar } from "./components/Navbar";
 import { LoginPage } from "./pages/LoginPage";
 import { TicketsPage } from "./pages/TicketsPage";
+import { TicketDetailPage } from "./pages/TicketDetailPage";
 import { UsersPage } from "./pages/UsersPage";
 import "./index.css";
 
@@ -27,6 +28,7 @@ export default function App() {
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/tickets" element={<TicketsPage />} />
+              <Route path="/tickets/:id" element={<TicketDetailPage />} />
               <Route
                 path="/users"
                 element={

@@ -8,6 +8,15 @@ import { requireAuth } from "../middleware/requireAuth";
 
 const router = Router();
 
+router.get("/assignable", requireAuth, async (_req, res) => {
+  const users = await prisma.user.findMany({
+    where: { deletedAt: null },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+  res.json(users);
+});
+
 router.get("/", requireAuth, requireAdmin, async (_req, res) => {
   const users = await prisma.user.findMany({
     where: { deletedAt: null },

@@ -20,16 +20,19 @@ const TICKETS = [
   },
 ];
 
+function mockGet(ticketsData: object) {
+  mockedAxios.get = vi.fn().mockImplementation((url: string) => {
+    if (url === "/api/users/assignable") return Promise.resolve({ data: [] });
+    return Promise.resolve({ data: ticketsData });
+  });
+}
+
 function mockEmpty() {
-  mockedAxios.get = vi
-    .fn()
-    .mockResolvedValue({ data: { tickets: [], total: 0, page: 1, pageSize: 10, totalPages: 1 } });
+  mockGet({ tickets: [], total: 0, page: 1, pageSize: 10, totalPages: 1 });
 }
 
 function mockWithTickets() {
-  mockedAxios.get = vi.fn().mockResolvedValue({
-    data: { tickets: TICKETS, total: 1, page: 1, pageSize: 10, totalPages: 1 },
-  });
+  mockGet({ tickets: TICKETS, total: 1, page: 1, pageSize: 10, totalPages: 1 });
 }
 
 beforeEach(() => {
@@ -70,13 +73,19 @@ describe("TicketsPage", () => {
     });
 
     it("shows skeleton rows while loading", () => {
-      mockedAxios.get = vi.fn(() => new Promise(() => {}));
+      mockedAxios.get = vi.fn().mockImplementation((url: string) => {
+        if (url === "/api/users/assignable") return Promise.resolve({ data: [] });
+        return new Promise(() => {});
+      });
       renderWithQuery(<TicketsPage />);
       expect(document.querySelectorAll(".animate-pulse").length).toBeGreaterThan(0);
     });
 
     it("shows an error message when the request fails", async () => {
-      mockedAxios.get = vi.fn().mockRejectedValue(new Error("Network error"));
+      mockedAxios.get = vi.fn().mockImplementation((url: string) => {
+        if (url === "/api/users/assignable") return Promise.resolve({ data: [] });
+        return Promise.reject(new Error("Network error"));
+      });
       renderWithQuery(<TicketsPage />);
       await waitFor(() => {
         expect(screen.getByText("Network error")).toBeInTheDocument();
@@ -184,9 +193,7 @@ describe("TicketsPage", () => {
     });
 
     it("Next button is enabled when more pages exist", async () => {
-      mockedAxios.get = vi.fn().mockResolvedValue({
-        data: { tickets: TICKETS, total: 15, page: 1, pageSize: 10, totalPages: 2 },
-      });
+      mockGet({ tickets: TICKETS, total: 15, page: 1, pageSize: 10, totalPages: 2 });
       renderWithQuery(<TicketsPage />);
       await waitFor(() => {
         expect(screen.getByRole("button", { name: "Next" })).toBeEnabled();

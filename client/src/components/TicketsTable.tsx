@@ -6,6 +6,7 @@ import {
   type SortingState,
   type OnChangeFn,
 } from "@tanstack/react-table";
+import { Link } from "react-router-dom";
 import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -18,6 +19,8 @@ import {
 } from "@/components/ui/table";
 import { TicketStatus, TicketSource } from "core";
 
+export type AssignedUser = { id: string; name: string; email: string };
+
 export type Ticket = {
   id: number;
   subject: string;
@@ -26,6 +29,7 @@ export type Ticket = {
   status: TicketStatus;
   source: TicketSource;
   createdAt: string;
+  assignedTo: AssignedUser | null;
 };
 
 const STATUS_STYLES: Record<TicketStatus, string> = {
@@ -56,8 +60,13 @@ const columns: ColumnDef<Ticket>[] = [
     accessorKey: "subject",
     header: "Subject",
     enableSorting: true,
-    cell: ({ getValue }) => (
-      <span className="font-medium">{getValue<string>()}</span>
+    cell: ({ getValue, row }) => (
+      <Link
+        to={`/tickets/${row.original.id}`}
+        className="font-medium text-slate-800 hover:text-blue-600 hover:underline"
+      >
+        {getValue<string>()}
+      </Link>
     ),
   },
   {
@@ -83,6 +92,19 @@ const columns: ColumnDef<Ticket>[] = [
         >
           {STATUS_LABELS[status]}
         </span>
+      );
+    },
+  },
+  {
+    accessorKey: "assignedTo",
+    header: "Assigned To",
+    enableSorting: false,
+    cell: ({ getValue }) => {
+      const user = getValue<AssignedUser | null>();
+      return user ? (
+        <span className="text-slate-700">{user.name}</span>
+      ) : (
+        <span className="text-slate-400 italic">Unassigned</span>
       );
     },
   },
@@ -160,6 +182,7 @@ export function TicketsTable({ tickets, isPending, error, sorting, onSortingChan
                 <TableCell><Skeleton className="h-4 w-56" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-40" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                <TableCell><Skeleton className="h-4 w-28" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-24" /></TableCell>
               </TableRow>
             ))

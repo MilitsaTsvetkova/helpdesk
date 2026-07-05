@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { useQuery } from "@tanstack/react-query";
 import type { SortingState } from "@tanstack/react-table";
-import { ChevronDown, Search } from "lucide-react";
+import { ChevronDown, Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,7 +22,11 @@ const STATUS_LABELS: Record<TicketStatus, string> = {
   [TicketStatus.CLOSED]: "Closed",
 };
 
+const UNASSIGNED = "unassigned";
+
 const PAGE_SIZE = 10;
+
+type AssignableUser = { id: string; name: string };
 
 type TicketsPageData = {
   tickets: Ticket[];
@@ -45,6 +49,7 @@ async function fetchTickets(
   sorting: SortingState,
   search: string,
   statuses: TicketStatus[],
+  assignedTo: string[],
   page: number,
 ): Promise<TicketsPageData> {
   const params: Record<string, string | number> = { page, pageSize: PAGE_SIZE };
@@ -54,9 +59,17 @@ async function fetchTickets(
   }
   if (search) params.search = search;
   if (statuses.length > 0) params.status = statuses.join(",");
+  if (assignedTo.length > 0) params.assignedTo = assignedTo.join(",");
 
   const res = await axios.get<TicketsPageData>("/api/tickets", {
     params,
+    withCredentials: true,
+  });
+  return res.data;
+}
+
+async function fetchAssignableUsers(): Promise<AssignableUser[]> {
+  const res = await axios.get<AssignableUser[]>("/api/users/assignable", {
     withCredentials: true,
   });
   return res.data;
@@ -68,17 +81,23 @@ export function TicketsPage() {
   ]);
   const [searchInput, setSearchInput] = useState("");
   const [statusFilter, setStatusFilter] = useState<TicketStatus[]>([]);
+  const [assignedToFilter, setAssignedToFilter] = useState<string[]>([]);
   const [page, setPage] = useState(1);
 
   const debouncedSearch = useDebounce(searchInput);
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, statusFilter, sorting]);
+  }, [debouncedSearch, statusFilter, assignedToFilter, sorting]);
 
   const { data, isPending, error } = useQuery({
-    queryKey: ["tickets", sorting, debouncedSearch, statusFilter, page],
-    queryFn: () => fetchTickets(sorting, debouncedSearch, statusFilter, page),
+    queryKey: ["tickets", sorting, debouncedSearch, statusFilter, assignedToFilter, page],
+    queryFn: () => fetchTickets(sorting, debouncedSearch, statusFilter, assignedToFilter, page),
+  });
+
+  const { data: assignableUsers = [] } = useQuery({
+    queryKey: ["users", "assignable"],
+    queryFn: fetchAssignableUsers,
   });
 
   const tickets = data?.tickets ?? [];
@@ -91,9 +110,35 @@ export function TicketsPage() {
     );
   }
 
+  function toggleAssignedTo(token: string) {
+    setAssignedToFilter((prev) =>
+      prev.includes(token) ? prev.filter((t) => t !== token) : [...prev, token],
+    );
+  }
+
   let statusLabel = "Status";
   if (statusFilter.length === 1) statusLabel = STATUS_LABELS[statusFilter[0]];
   else if (statusFilter.length > 1) statusLabel = `Status (${statusFilter.length})`;
+
+  const hasFilters = searchInput !== "" || statusFilter.length > 0 || assignedToFilter.length > 0;
+
+  function resetFilters() {
+    setSearchInput("");
+    setStatusFilter([]);
+    setAssignedToFilter([]);
+  }
+
+  let assignedToLabel = "Assigned To";
+  if (assignedToFilter.length === 1) {
+    if (assignedToFilter[0] === UNASSIGNED) {
+      assignedToLabel = "Unassigned";
+    } else {
+      const user = assignableUsers.find((u) => u.id === assignedToFilter[0]);
+      assignedToLabel = user?.name ?? "Assigned To";
+    }
+  } else if (assignedToFilter.length > 1) {
+    assignedToLabel = `Assigned To (${assignedToFilter.length})`;
+  }
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
@@ -137,6 +182,50 @@ export function TicketsPage() {
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className={`bg-transparent ${assignedToFilter.length > 0 ? "border-slate-800 text-slate-800" : ""}`}
+            >
+              {assignedToLabel}
+              <ChevronDown className="ml-1.5 h-3.5 w-3.5 opacity-60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuCheckboxItem
+              checked={assignedToFilter.includes(UNASSIGNED)}
+              onCheckedChange={() => toggleAssignedTo(UNASSIGNED)}
+              onSelect={(e) => e.preventDefault()}
+            >
+              Unassigned
+            </DropdownMenuCheckboxItem>
+            {assignableUsers.map((user) => (
+              <DropdownMenuCheckboxItem
+                key={user.id}
+                checked={assignedToFilter.includes(user.id)}
+                onCheckedChange={() => toggleAssignedTo(user.id)}
+                onSelect={(e) => e.preventDefault()}
+              >
+                {user.name}
+              </DropdownMenuCheckboxItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {hasFilters && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={resetFilters}
+            className="text-slate-500 hover:text-slate-800"
+          >
+            <X className="h-3.5 w-3.5 mr-1" />
+            Reset
+          </Button>
+        )}
       </div>
 
       <TicketsTable

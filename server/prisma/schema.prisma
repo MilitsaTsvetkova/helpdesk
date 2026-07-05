@@ -25,17 +25,18 @@ enum TicketSource {
 }
 
 model User {
-  id            String    @id
-  name          String
-  email         String    @unique
-  emailVerified Boolean   @default(false)
-  image         String?
-  role          Role      @default(AGENT)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  deletedAt     DateTime?
-  sessions      Session[]
-  accounts      Account[]
+  id              String    @id
+  name            String
+  email           String    @unique
+  emailVerified   Boolean   @default(false)
+  image           String?
+  role            Role      @default(AGENT)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+  sessions        Session[]
+  accounts        Account[]
+  assignedTickets Ticket[]
 
   @@map("user")
 }
@@ -76,16 +77,18 @@ model Account {
 }
 
 model Ticket {
-  id        Int          @id @default(autoincrement())
-  subject   String
-  body      String
-  fromEmail String
-  fromName  String
-  status    TicketStatus @default(OPEN)
-  source    TicketSource @default(EMAIL)
-  messageId String?      @unique
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  id           Int          @id @default(autoincrement())
+  subject      String
+  body         String
+  fromEmail    String
+  fromName     String
+  status       TicketStatus @default(OPEN)
+  source       TicketSource @default(EMAIL)
+  messageId    String?      @unique
+  assignedToId String?
+  assignedTo   User?        @relation(fields: [assignedToId], references: [id])
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 
   @@map("ticket")
 }

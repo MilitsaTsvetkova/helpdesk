@@ -28,6 +28,7 @@ helpdesk/
 │       ├── components/
 │       │   ├── ui/           shadcn/ui primitives (Button, Input, Label, …)
 │       │   ├── Navbar.tsx
+│       │   ├── Pagination.tsx
 │       │   ├── TicketsTable.tsx
 │       │   └── UsersTable.tsx
 │       ├── contexts/
@@ -36,6 +37,7 @@ helpdesk/
 │       │   └── utils.ts      cn() helper (clsx + tailwind-merge)
 │       ├── pages/
 │       │   ├── LoginPage.tsx
+│       │   ├── TicketDetailPage.tsx
 │       │   ├── TicketsPage.tsx
 │       │   └── UsersPage.tsx
 │       └── index.css         Tailwind import + shadcn CSS variables
@@ -43,7 +45,7 @@ helpdesk/
 │   ├── prisma/
 │   │   ├── migrations/
 │   │   ├── schema.prisma
-│   │   └── seed.ts           creates the ADMIN seed user
+│   │   └── seed.ts           creates ADMIN + 3 agents + sample tickets
 │   └── src/
 │       ├── lib/
 │       │   ├── auth.ts       Better Auth instance
@@ -53,8 +55,8 @@ helpdesk/
 │       │   ├── requireAdmin.ts
 │       │   └── requireAuth.ts
 │       ├── routes/
-│       │   ├── tickets.ts    GET /api/tickets, POST /api/tickets/inbound-email
-│       │   └── users.ts      CRUD /api/users
+│       │   ├── tickets.ts    GET /api/tickets, GET /api/tickets/:id, POST /api/tickets/inbound-email
+│       │   └── users.ts      CRUD /api/users, GET /api/users/assignable
 │       └── index.ts          app entry point
 ├── e2e/                      Playwright E2E tests
 ├── docker-compose.yml
@@ -72,6 +74,8 @@ cd server && bun run seed   # create/restore the ADMIN seed user (run after any 
 Vite proxies `/api/*` → `http://localhost:3000`.
 
 The seed reads `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` from `server/.env`. Run it any time the dev DB is reset — without it, no admin user exists and sign-in will fail.
+
+The seed is idempotent and also creates three agent accounts (`alice@example.com`, `bob@example.com`, `carol@example.com`) and 8 sample tickets with assignments. Tickets are only seeded when the `ticket` table is empty.
 
 ## Data Fetching
 
@@ -95,6 +99,8 @@ The seed reads `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` from `server/.env`. 
 - Admin-only links (e.g. Users): gate with `user?.role === Role.ADMIN`.
 
 **Inbound email webhook** (`POST /api/tickets/inbound-email`) is intentionally public — no session required, called by the email provider. Protect it with `INBOUND_EMAIL_WEBHOOK_SECRET` instead (see `.env.example`).
+
+**`GET /api/users/assignable`** is `requireAuth` only (not admin-gated) — it returns `{id, name}[]` for all active users and is used to populate the "Assigned To" filter dropdown on the tickets page.
 
 ## UI Components
 
@@ -198,6 +204,15 @@ const { name, email } = data; // fully typed
 - Use `z.prettifyError(err)` for human-readable multi-line error strings
 - Define schemas at module scope (not inside components/handlers)
 
+## Express Route Params
+
+`@types/express-serve-static-core@5.x` types `ParamsDictionary` values as `string | string[]`. Always cast route params before use:
+
+```ts
+const id = parseInt(req.params.id as string);
+const userId = req.params.id as string;
+```
+
 ## Unit & Component Testing
 
 **Stack**: Vitest + React Testing Library + jsdom. Config lives in `client/vite.config.ts` (`test` block). Global test setup: `client/src/test/setup.ts` (imports `@testing-library/jest-dom`).
@@ -212,8 +227,9 @@ bun run test:watch    # watch mode
 **Conventions**:
 
 - Co-locate test files next to the component: `Foo.tsx` → `Foo.test.tsx`
-- Always use `renderWithQuery` from `@/test/render-with-query` instead of bare `render` — it wraps the component in a `QueryClientProvider` with `retry: false`
+- Always use `renderWithQuery` from `@/test/render-with-query` instead of bare `render` — it wraps the component in a `MemoryRouter` + `QueryClientProvider` with `retry: false`
 - Mock `axios` at the module level with `vi.mock("axios")`, then override per-test with `vi.mocked(axios).get = vi.fn().mockResolvedValue(...)` or `.mockRejectedValue(...)`
+- When a component makes multiple `axios.get` calls (e.g. tickets + assignable users), use `mockImplementation((url) => ...)` to return different data per URL rather than a single `mockResolvedValue`
 - Call `vi.clearAllMocks()` in `beforeEach` to prevent cross-test bleed
 - Never mock TanStack Query itself — only mock the underlying `axios` calls
 - Use `waitFor` (not raw `await`) when asserting on async state changes

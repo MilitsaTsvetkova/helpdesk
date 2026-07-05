@@ -12,6 +12,7 @@ const TICKETS: Ticket[] = [
     status: "OPEN",
     source: "EMAIL",
     createdAt: "2024-06-01T10:00:00.000Z",
+    assignedTo: null,
   },
   {
     id: 2,
@@ -21,6 +22,7 @@ const TICKETS: Ticket[] = [
     status: "RESOLVED",
     source: "EMAIL",
     createdAt: "2024-06-02T10:00:00.000Z",
+    assignedTo: { id: "u1", name: "Carol Agent", email: "carol@example.com" },
   },
 ];
 
