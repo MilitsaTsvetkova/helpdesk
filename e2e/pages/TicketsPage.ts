@@ -30,12 +30,33 @@ export class TicketsPage {
    */
   readonly errorMessage: Locator;
 
+  /**
+   * The "Category" dropdown trigger button in the filter bar.
+   * The button label changes based on the active selection:
+   *   - "Category"        → no filter applied
+   *   - "Hardware"        → exactly one category selected
+   *   - "Category (2)"   → two or more categories selected
+   *
+   * Use this locator when no filter is active (label is "Category"). Once a
+   * category is selected, locate by the updated label directly in the test.
+   */
+  readonly categoryFilterButton: Locator;
+
+  /**
+   * The "Reset" ghost button that appears in the filter bar whenever at least
+   * one filter (search, status, category, or assignedTo) is active.
+   * Clicking it clears all filters and hides itself.
+   */
+  readonly resetButton: Locator;
+
   constructor(page: Page) {
     this.page = page;
     this.heading = page.getByRole('heading', { name: 'Tickets' });
     this.table = page.getByRole('table');
     this.emptyState = page.getByText('No tickets found.');
     this.errorMessage = page.locator('p.text-red-600');
+    this.categoryFilterButton = page.getByRole('button', { name: 'Category' });
+    this.resetButton = page.getByRole('button', { name: 'Reset' });
   }
 
   async goto(): Promise<void> {
