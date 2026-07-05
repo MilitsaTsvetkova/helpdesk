@@ -85,6 +85,7 @@ async function main() {
       fromName: "John Doe",
       status: "OPEN" as const,
       source: "EMAIL" as const,
+      category: "ACCESS" as const,
       assignedToId: alice.id,
     },
     {
@@ -94,6 +95,7 @@ async function main() {
       fromName: "Sarah Kim",
       status: "IN_PROGRESS" as const,
       source: "EMAIL" as const,
+      category: "HARDWARE" as const,
       assignedToId: alice.id,
     },
     {
@@ -103,6 +105,7 @@ async function main() {
       fromName: "Mike Chen",
       status: "OPEN" as const,
       source: "EMAIL" as const,
+      category: "ACCESS" as const,
       assignedToId: bob.id,
     },
     {
@@ -112,6 +115,7 @@ async function main() {
       fromName: "Priya Patel",
       status: "OPEN" as const,
       source: "EMAIL" as const,
+      category: "HARDWARE" as const,
       assignedToId: bob.id,
     },
     {
@@ -121,6 +125,7 @@ async function main() {
       fromName: "Tom Wilson",
       status: "RESOLVED" as const,
       source: "EMAIL" as const,
+      category: "HARDWARE" as const,
       assignedToId: carol.id,
     },
     {
@@ -130,6 +135,7 @@ async function main() {
       fromName: "Linda Su",
       status: "IN_PROGRESS" as const,
       source: "EMAIL" as const,
+      category: "NETWORK" as const,
       assignedToId: carol.id,
     },
     {
@@ -139,6 +145,7 @@ async function main() {
       fromName: "Alex Morgan",
       status: "OPEN" as const,
       source: "EMAIL" as const,
+      category: "HARDWARE" as const,
       assignedToId: null,
     },
     {
@@ -148,6 +155,7 @@ async function main() {
       fromName: "Diana Reyes",
       status: "OPEN" as const,
       source: "EMAIL" as const,
+      category: "SOFTWARE" as const,
       assignedToId: null,
     },
   ];

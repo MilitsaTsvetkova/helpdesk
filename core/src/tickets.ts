@@ -1,3 +1,13 @@
+export const TicketCategory = {
+  HARDWARE: "HARDWARE",
+  SOFTWARE: "SOFTWARE",
+  NETWORK: "NETWORK",
+  ACCESS: "ACCESS",
+  OTHER: "OTHER",
+} as const;
+
+export type TicketCategory = (typeof TicketCategory)[keyof typeof TicketCategory];
+
 export const TicketStatus = {
   OPEN: "OPEN",
   IN_PROGRESS: "IN_PROGRESS",

@@ -13,13 +13,21 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { TicketsTable, type Ticket } from "@/components/TicketsTable";
 import { Pagination } from "@/components/Pagination";
-import { TicketStatus } from "core";
+import { TicketCategory, TicketStatus } from "core";
 
 const STATUS_LABELS: Record<TicketStatus, string> = {
   [TicketStatus.OPEN]: "Open",
   [TicketStatus.IN_PROGRESS]: "In Progress",
   [TicketStatus.RESOLVED]: "Resolved",
   [TicketStatus.CLOSED]: "Closed",
+};
+
+const CATEGORY_LABELS: Record<TicketCategory, string> = {
+  [TicketCategory.HARDWARE]: "Hardware",
+  [TicketCategory.SOFTWARE]: "Software",
+  [TicketCategory.NETWORK]: "Network",
+  [TicketCategory.ACCESS]: "Access",
+  [TicketCategory.OTHER]: "Other",
 };
 
 const UNASSIGNED = "unassigned";
@@ -49,6 +57,7 @@ async function fetchTickets(
   sorting: SortingState,
   search: string,
   statuses: TicketStatus[],
+  categories: TicketCategory[],
   assignedTo: string[],
   page: number,
 ): Promise<TicketsPageData> {
@@ -59,6 +68,7 @@ async function fetchTickets(
   }
   if (search) params.search = search;
   if (statuses.length > 0) params.status = statuses.join(",");
+  if (categories.length > 0) params.category = categories.join(",");
   if (assignedTo.length > 0) params.assignedTo = assignedTo.join(",");
 
   const res = await axios.get<TicketsPageData>("/api/tickets", {
@@ -81,6 +91,7 @@ export function TicketsPage() {
   ]);
   const [searchInput, setSearchInput] = useState("");
   const [statusFilter, setStatusFilter] = useState<TicketStatus[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState<TicketCategory[]>([]);
   const [assignedToFilter, setAssignedToFilter] = useState<string[]>([]);
   const [page, setPage] = useState(1);
 
@@ -88,11 +99,11 @@ export function TicketsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, statusFilter, assignedToFilter, sorting]);
+  }, [debouncedSearch, statusFilter, categoryFilter, assignedToFilter, sorting]);
 
   const { data, isPending, error } = useQuery({
-    queryKey: ["tickets", sorting, debouncedSearch, statusFilter, assignedToFilter, page],
-    queryFn: () => fetchTickets(sorting, debouncedSearch, statusFilter, assignedToFilter, page),
+    queryKey: ["tickets", sorting, debouncedSearch, statusFilter, categoryFilter, assignedToFilter, page],
+    queryFn: () => fetchTickets(sorting, debouncedSearch, statusFilter, categoryFilter, assignedToFilter, page),
   });
 
   const { data: assignableUsers = [] } = useQuery({
@@ -110,6 +121,12 @@ export function TicketsPage() {
     );
   }
 
+  function toggleCategory(category: TicketCategory) {
+    setCategoryFilter((prev) =>
+      prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category],
+    );
+  }
+
   function toggleAssignedTo(token: string) {
     setAssignedToFilter((prev) =>
       prev.includes(token) ? prev.filter((t) => t !== token) : [...prev, token],
@@ -120,11 +137,16 @@ export function TicketsPage() {
   if (statusFilter.length === 1) statusLabel = STATUS_LABELS[statusFilter[0]];
   else if (statusFilter.length > 1) statusLabel = `Status (${statusFilter.length})`;
 
-  const hasFilters = searchInput !== "" || statusFilter.length > 0 || assignedToFilter.length > 0;
+  let categoryLabel = "Category";
+  if (categoryFilter.length === 1) categoryLabel = CATEGORY_LABELS[categoryFilter[0]];
+  else if (categoryFilter.length > 1) categoryLabel = `Category (${categoryFilter.length})`;
+
+  const hasFilters = searchInput !== "" || statusFilter.length > 0 || categoryFilter.length > 0 || assignedToFilter.length > 0;
 
   function resetFilters() {
     setSearchInput("");
     setStatusFilter([]);
+    setCategoryFilter([]);
     setAssignedToFilter([]);
   }
 
@@ -178,6 +200,31 @@ export function TicketsPage() {
                 onSelect={(e) => e.preventDefault()}
               >
                 {STATUS_LABELS[status]}
+              </DropdownMenuCheckboxItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className={`bg-transparent ${categoryFilter.length > 0 ? "border-slate-800 text-slate-800" : ""}`}
+            >
+              {categoryLabel}
+              <ChevronDown className="ml-1.5 h-3.5 w-3.5 opacity-60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            {(Object.values(TicketCategory) as TicketCategory[]).map((category) => (
+              <DropdownMenuCheckboxItem
+                key={category}
+                checked={categoryFilter.includes(category)}
+                onCheckedChange={() => toggleCategory(category)}
+                onSelect={(e) => e.preventDefault()}
+              >
+                {CATEGORY_LABELS[category]}
               </DropdownMenuCheckboxItem>
             ))}
           </DropdownMenuContent>

@@ -9,7 +9,6 @@ vi.mock("@/components/ui/select", () => ({
     value: string; onValueChange: (v: string) => void; disabled?: boolean;
   }>) => (
     <select
-      data-testid="assignment-select"
       value={value}
       disabled={disabled}
       onChange={(e) => onValueChange(e.target.value)}
@@ -121,19 +120,19 @@ describe("TicketDetailPage", () => {
       });
     });
 
-    it("renders the source as Email", async () => {
+    it("renders the source as Email in the source select", async () => {
       mockGet();
       renderWithQuery(<TicketDetailPage />);
       await waitFor(() => {
-        expect(screen.getByText("Email")).toBeInTheDocument();
+        expect(screen.getByDisplayValue("Email")).toBeInTheDocument();
       });
     });
 
-    it("renders the source as Web", async () => {
+    it("renders the source as Web in the source select", async () => {
       mockGet({ ...TICKET, source: "WEB" });
       renderWithQuery(<TicketDetailPage />);
       await waitFor(() => {
-        expect(screen.getByText("Web")).toBeInTheDocument();
+        expect(screen.getByDisplayValue("Web")).toBeInTheDocument();
       });
     });
 
@@ -168,36 +167,95 @@ describe("TicketDetailPage", () => {
     });
   });
 
-  describe("status badge", () => {
-    it("applies sky styling to OPEN", async () => {
+  describe("status select", () => {
+    it("shows Open for OPEN status", async () => {
+      mockGet();
+      renderWithQuery(<TicketDetailPage />);
+      await waitFor(() => expect(screen.getByDisplayValue("Open")).toBeInTheDocument());
+    });
+
+    it("shows In Progress for IN_PROGRESS status", async () => {
+      mockGet({ ...TICKET, status: "IN_PROGRESS" });
+      renderWithQuery(<TicketDetailPage />);
+      await waitFor(() => expect(screen.getByDisplayValue("In Progress")).toBeInTheDocument());
+    });
+
+    it("shows Resolved for RESOLVED status", async () => {
+      mockGet({ ...TICKET, status: "RESOLVED" });
+      renderWithQuery(<TicketDetailPage />);
+      await waitFor(() => expect(screen.getByDisplayValue("Resolved")).toBeInTheDocument());
+    });
+
+    it("shows Closed for CLOSED status", async () => {
+      mockGet({ ...TICKET, status: "CLOSED" });
+      renderWithQuery(<TicketDetailPage />);
+      await waitFor(() => expect(screen.getByDisplayValue("Closed")).toBeInTheDocument());
+    });
+
+    it("calls PATCH with the new status when changed", async () => {
+      mockGet();
+      mockedAxios.patch = vi.fn().mockResolvedValue({
+        data: { ...TICKET, status: "RESOLVED" },
+      });
+      renderWithQuery(<TicketDetailPage />);
+
+      await waitFor(() => screen.getByDisplayValue("Open"));
+      fireEvent.change(screen.getByDisplayValue("Open"), {
+        target: { value: "RESOLVED" },
+      });
+
+      await waitFor(() => {
+        expect(mockedAxios.patch).toHaveBeenCalledWith(
+          "/api/tickets/42",
+          { status: "RESOLVED" },
+          { withCredentials: true },
+        );
+      });
+    });
+
+    it("shows 'Failed to save' when the status request fails", async () => {
+      mockGet();
+      mockedAxios.patch = vi.fn().mockRejectedValue(new Error("Server error"));
+      renderWithQuery(<TicketDetailPage />);
+
+      await waitFor(() => screen.getByDisplayValue("Open"));
+      fireEvent.change(screen.getByDisplayValue("Open"), {
+        target: { value: "RESOLVED" },
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText("Failed to save")).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe("source select", () => {
+    it("shows the current source as selected", async () => {
       mockGet();
       renderWithQuery(<TicketDetailPage />);
       await waitFor(() => {
-        expect(screen.getByText("Open")).toHaveClass("bg-sky-100", "text-sky-700");
+        expect(screen.getByDisplayValue("Email")).toBeInTheDocument();
       });
     });
 
-    it("applies amber styling to IN_PROGRESS", async () => {
-      mockGet({ ...TICKET, status: "IN_PROGRESS" });
-      renderWithQuery(<TicketDetailPage />);
-      await waitFor(() => {
-        expect(screen.getByText("In Progress")).toHaveClass("bg-amber-100", "text-amber-700");
+    it("calls PATCH with the new source when changed", async () => {
+      mockGet();
+      mockedAxios.patch = vi.fn().mockResolvedValue({
+        data: { ...TICKET, source: "WEB" },
       });
-    });
-
-    it("applies green styling to RESOLVED", async () => {
-      mockGet({ ...TICKET, status: "RESOLVED" });
       renderWithQuery(<TicketDetailPage />);
-      await waitFor(() => {
-        expect(screen.getByText("Resolved")).toHaveClass("bg-green-100", "text-green-700");
+
+      await waitFor(() => screen.getByDisplayValue("Email"));
+      fireEvent.change(screen.getByDisplayValue("Email"), {
+        target: { value: "WEB" },
       });
-    });
 
-    it("applies slate styling to CLOSED", async () => {
-      mockGet({ ...TICKET, status: "CLOSED" });
-      renderWithQuery(<TicketDetailPage />);
       await waitFor(() => {
-        expect(screen.getByText("Closed")).toHaveClass("bg-slate-100", "text-slate-600");
+        expect(mockedAxios.patch).toHaveBeenCalledWith(
+          "/api/tickets/42",
+          { source: "WEB" },
+          { withCredentials: true },
+        );
       });
     });
   });
@@ -207,7 +265,7 @@ describe("TicketDetailPage", () => {
       mockGet();
       renderWithQuery(<TicketDetailPage />);
       await waitFor(() => {
-        expect(screen.getByText("Unassigned")).toBeInTheDocument();
+        expect(screen.getByDisplayValue("Unassigned")).toBeInTheDocument();
       });
     });
 
@@ -218,7 +276,7 @@ describe("TicketDetailPage", () => {
       });
       renderWithQuery(<TicketDetailPage />);
       await waitFor(() => {
-        expect(screen.getByText("Alice Chen")).toBeInTheDocument();
+        expect(screen.getByDisplayValue("Alice Chen")).toBeInTheDocument();
       });
     });
 
@@ -232,8 +290,8 @@ describe("TicketDetailPage", () => {
       });
       renderWithQuery(<TicketDetailPage />);
 
-      await waitFor(() => screen.getByTestId("assignment-select"));
-      fireEvent.change(screen.getByTestId("assignment-select"), {
+      await waitFor(() => screen.getByDisplayValue("Unassigned"));
+      fireEvent.change(screen.getByDisplayValue("Unassigned"), {
         target: { value: "agent-1" },
       });
 
@@ -256,8 +314,8 @@ describe("TicketDetailPage", () => {
       });
       renderWithQuery(<TicketDetailPage />);
 
-      await waitFor(() => screen.getByTestId("assignment-select"));
-      fireEvent.change(screen.getByTestId("assignment-select"), {
+      await waitFor(() => screen.getByDisplayValue("Alice Chen"));
+      fireEvent.change(screen.getByDisplayValue("Alice Chen"), {
         target: { value: "unassigned" },
       });
 
@@ -275,8 +333,8 @@ describe("TicketDetailPage", () => {
       mockedAxios.patch = vi.fn().mockRejectedValue(new Error("Server error"));
       renderWithQuery(<TicketDetailPage />);
 
-      await waitFor(() => screen.getByTestId("assignment-select"));
-      fireEvent.change(screen.getByTestId("assignment-select"), {
+      await waitFor(() => screen.getByDisplayValue("Unassigned"));
+      fireEvent.change(screen.getByDisplayValue("Unassigned"), {
         target: { value: "agent-1" },
       });
 

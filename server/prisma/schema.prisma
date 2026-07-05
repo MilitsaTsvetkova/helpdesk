@@ -12,6 +12,14 @@ enum Role {
   AGENT
 }
 
+enum TicketCategory {
+  HARDWARE
+  SOFTWARE
+  NETWORK
+  ACCESS
+  OTHER
+}
+
 enum TicketStatus {
   OPEN
   IN_PROGRESS
@@ -82,8 +90,9 @@ model Ticket {
   body         String
   fromEmail    String
   fromName     String
-  status       TicketStatus @default(OPEN)
-  source       TicketSource @default(EMAIL)
+  status       TicketStatus   @default(OPEN)
+  source       TicketSource   @default(EMAIL)
+  category     TicketCategory?
   messageId    String?      @unique
   assignedToId String?
   assignedTo   User?        @relation(fields: [assignedToId], references: [id])

@@ -1,4 +1,4 @@
-import { inboundEmailSchema, TicketStatus } from "core";
+import { inboundEmailSchema, patchTicketSchema, TicketCategory, TicketStatus, TicketSource } from "core";
 import { Router } from "express";
 import { type TicketWhereInput } from "../generated/prisma/models/Ticket";
 import { prisma } from "../lib/prisma";
@@ -13,12 +13,14 @@ const SORTABLE_FIELDS = ["subject", "fromName", "status", "createdAt"] as const;
 type SortableField = (typeof SORTABLE_FIELDS)[number];
 
 const VALID_STATUSES = Object.values(TicketStatus) as string[];
+const VALID_CATEGORIES = Object.values(TicketCategory) as string[];
 
 router.get("/", requireAuth, async (req, res) => {
   const rawSortBy = req.query.sortBy as string | undefined;
   const rawSortOrder = req.query.sortOrder as string | undefined;
   const rawSearch = req.query.search as string | undefined;
   const rawStatus = req.query.status as string | undefined;
+  const rawCategory = req.query.category as string | undefined;
   const rawAssignedTo = req.query.assignedTo as string | undefined;
   const rawPage = req.query.page as string | undefined;
   const rawPageSize = req.query.pageSize as string | undefined;
@@ -57,6 +59,14 @@ router.get("/", requireAuth, async (req, res) => {
     andConditions.push({ status: { in: statuses } });
   }
 
+  const categories = rawCategory
+    ?.split(",")
+    .map((s) => s.trim())
+    .filter((s) => VALID_CATEGORIES.includes(s)) as TicketCategory[];
+  if (categories && categories.length > 0) {
+    andConditions.push({ category: { in: categories } });
+  }
+
   const assignedToTokens =
     rawAssignedTo
       ?.split(",")
@@ -82,6 +92,7 @@ router.get("/", requireAuth, async (req, res) => {
     fromName: true,
     status: true,
     source: true,
+    category: true,
     createdAt: true,
     assignedTo: { select: { id: true, name: true, email: true } },
   };
@@ -113,13 +124,12 @@ router.patch("/:id", requireAuth, async (req, res) => {
     return;
   }
 
-  const { assignedToId } = req.body as { assignedToId?: string | null };
+  const data = validate(patchTicketSchema, req.body, res);
+  if (!data) return;
 
-  if (assignedToId !== null && assignedToId !== undefined) {
-    if (typeof assignedToId !== "string") {
-      res.status(400).json({ error: "assignedToId must be a string or null." });
-      return;
-    }
+  const { assignedToId, status, source, category } = data;
+
+  if (assignedToId) {
     const user = await prisma.user.findUnique({
       where: { id: assignedToId, deletedAt: null },
     });
@@ -131,7 +141,12 @@ router.patch("/:id", requireAuth, async (req, res) => {
 
   const ticket = await prisma.ticket.update({
     where: { id },
-    data: { assignedToId: assignedToId ?? null },
+    data: {
+      ...(assignedToId !== undefined && { assignedToId }),
+      ...(status !== undefined && { status }),
+      ...(source !== undefined && { source }),
+      ...(category !== undefined && { category }),
+    },
     include: { assignedTo: { select: { id: true, name: true, email: true } } },
   });
 

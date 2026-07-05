@@ -2,7 +2,7 @@ import { useParams, Link } from "react-router-dom";
 import axios from "axios";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
-import { TicketStatus, TicketSource } from "core";
+import { TicketCategory, TicketStatus, TicketSource } from "core";
 import {
   Select,
   SelectContent,
@@ -22,9 +22,17 @@ type TicketDetail = {
   fromName: string;
   status: TicketStatus;
   source: TicketSource;
+  category: TicketCategory | null;
   assignedTo: AssignedUser | null;
   createdAt: string;
   updatedAt: string;
+};
+
+type TicketPatch = {
+  assignedToId?: string | null;
+  status?: TicketStatus;
+  source?: TicketSource;
+  category?: TicketCategory | null;
 };
 
 const STATUS_STYLES: Record<TicketStatus, string> = {
@@ -41,7 +49,32 @@ const STATUS_LABELS: Record<TicketStatus, string> = {
   [TicketStatus.CLOSED]: "Closed",
 };
 
+const SOURCE_LABELS: Record<TicketSource, string> = {
+  [TicketSource.EMAIL]: "Email",
+  [TicketSource.WEB]: "Web",
+};
+
+const CATEGORY_LABELS: Record<TicketCategory, string> = {
+  [TicketCategory.HARDWARE]: "Hardware",
+  [TicketCategory.SOFTWARE]: "Software",
+  [TicketCategory.NETWORK]: "Network",
+  [TicketCategory.ACCESS]: "Access",
+  [TicketCategory.OTHER]: "Other",
+};
+
+const UNCATEGORIZED_VALUE = "uncategorized";
+
 const UNASSIGNED_VALUE = "unassigned";
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 async function fetchTicket(id: string): Promise<TicketDetail> {
   const res = await axios.get<TicketDetail>(`/api/tickets/${id}`, {
@@ -57,12 +90,10 @@ async function fetchAssignableUsers(): Promise<AssignableUser[]> {
   return res.data;
 }
 
-async function assignTicket(id: string, assignedToId: string | null): Promise<TicketDetail> {
-  const res = await axios.patch<TicketDetail>(
-    `/api/tickets/${id}`,
-    { assignedToId },
-    { withCredentials: true },
-  );
+async function patchTicket(id: string, patch: TicketPatch): Promise<TicketDetail> {
+  const res = await axios.patch<TicketDetail>(`/api/tickets/${id}`, patch, {
+    withCredentials: true,
+  });
   return res.data;
 }
 
@@ -82,19 +113,30 @@ export function TicketDetailPage() {
   });
 
   const mutation = useMutation({
-    mutationFn: (assignedToId: string | null) => assignTicket(id!, assignedToId),
+    mutationFn: (patch: TicketPatch) => patchTicket(id!, patch),
     onSuccess: (updated) => {
       queryClient.setQueryData(["ticket", id], updated);
     },
   });
 
   function handleAssign(value: string) {
-    const assignedToId = value === UNASSIGNED_VALUE ? null : value;
-    mutation.mutate(assignedToId);
+    mutation.mutate({ assignedToId: value === UNASSIGNED_VALUE ? null : value });
+  }
+
+  function handleStatusChange(value: string) {
+    mutation.mutate({ status: value as TicketStatus });
+  }
+
+  function handleSourceChange(value: string) {
+    mutation.mutate({ source: value as TicketSource });
+  }
+
+  function handleCategoryChange(value: string) {
+    mutation.mutate({ category: value === UNCATEGORIZED_VALUE ? null : value as TicketCategory });
   }
 
   return (
-    <div className="p-8 max-w-3xl mx-auto">
+    <div className="p-8 max-w-5xl mx-auto">
       <Link
         to="/tickets"
         className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mb-6"
@@ -104,10 +146,16 @@ export function TicketDetailPage() {
       </Link>
 
       {isPending && (
-        <div className="space-y-4">
-          <div className="h-7 w-2/3 bg-slate-200 rounded animate-pulse" />
-          <div className="h-4 w-1/3 bg-slate-200 rounded animate-pulse" />
-          <div className="h-40 bg-slate-200 rounded animate-pulse" />
+        <div className="grid grid-cols-[1fr_260px] gap-8">
+          <div className="space-y-4">
+            <div className="h-7 w-2/3 bg-slate-200 rounded animate-pulse" />
+            <div className="h-40 bg-slate-200 rounded animate-pulse" />
+          </div>
+          <div className="space-y-3">
+            <div className="h-8 bg-slate-200 rounded animate-pulse" />
+            <div className="h-8 bg-slate-200 rounded animate-pulse" />
+            <div className="h-8 bg-slate-200 rounded animate-pulse" />
+          </div>
         </div>
       )}
 
@@ -116,91 +164,117 @@ export function TicketDetailPage() {
       )}
 
       {ticket && (
-        <div className="space-y-6">
-          {/* Title */}
-          <div className="space-y-2">
+        <div className="grid grid-cols-[1fr_260px] gap-8 items-start">
+          {/* Left: title + message */}
+          <div className="space-y-6">
             <h1 className="text-2xl font-semibold text-slate-800">{ticket.subject}</h1>
-            <div className="flex items-center gap-2">
-              <span
-                className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium ${STATUS_STYLES[ticket.status]}`}
-              >
-                {STATUS_LABELS[ticket.status]}
-              </span>
-              <span className="text-xs text-slate-400">
-                {ticket.source === TicketSource.EMAIL ? "Email" : "Web"}
-              </span>
+
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">Message</p>
+              <div className="border border-slate-200 rounded-lg p-4 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+                {ticket.body}
+              </div>
             </div>
           </div>
 
-          {/* Metadata */}
-          <div className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm border-b border-slate-200 pb-4">
-            {/* Row 1 */}
+          {/* Right: all dropdowns + read-only metadata */}
+          <div className="space-y-5 border-l border-slate-100 pl-8">
+            {mutation.isError && (
+              <p className="text-xs text-red-500">Failed to save</p>
+            )}
+
             <div>
-              <p className="text-xs font-medium text-slate-400 mb-0.5">From</p>
-              <p className="text-slate-700">
-                {ticket.fromName}{" "}
-                <span className="text-slate-400">&lt;{ticket.fromEmail}&gt;</span>
-              </p>
-            </div>
-            <div>
-              <p className="text-xs font-medium text-slate-400 mb-0.5">Assigned To</p>
-              <div className="flex items-center gap-2">
-                <Select
-                  value={ticket.assignedTo?.id ?? UNASSIGNED_VALUE}
-                  onValueChange={handleAssign}
-                  disabled={mutation.isPending}
-                >
-                <SelectTrigger className="h-7 w-40 text-xs">
+              <p className="text-xs font-medium text-slate-400 mb-1.5">Status</p>
+              <Select
+                value={ticket.status}
+                onValueChange={handleStatusChange}
+              >
+                <SelectTrigger className={`h-8 w-full text-xs font-medium ${STATUS_STYLES[ticket.status]}`}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={UNASSIGNED_VALUE}>
-                    <span className="italic text-slate-400">Unassigned</span>
-                  </SelectItem>
+                  {(Object.values(TicketStatus) as TicketStatus[]).map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {STATUS_LABELS[s]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <p className="text-xs font-medium text-slate-400 mb-1.5">Source</p>
+              <Select
+                value={ticket.source}
+                onValueChange={handleSourceChange}
+              >
+                <SelectTrigger className="h-8 w-full text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.values(TicketSource) as TicketSource[]).map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {SOURCE_LABELS[s]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <p className="text-xs font-medium text-slate-400 mb-1.5">Category</p>
+              <Select
+                value={ticket.category ?? UNCATEGORIZED_VALUE}
+                onValueChange={handleCategoryChange}
+              >
+                <SelectTrigger className="h-8 w-full text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={UNCATEGORIZED_VALUE}>Uncategorized</SelectItem>
+                  {(Object.values(TicketCategory) as TicketCategory[]).map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {CATEGORY_LABELS[c]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <p className="text-xs font-medium text-slate-400 mb-1.5">Assigned To</p>
+              <Select
+                value={ticket.assignedTo?.id ?? UNASSIGNED_VALUE}
+                onValueChange={handleAssign}
+              >
+                <SelectTrigger className="h-8 w-full text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={UNASSIGNED_VALUE}>Unassigned</SelectItem>
                   {assignableUsers.map((user) => (
                     <SelectItem key={user.id} value={user.id}>
                       {user.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
-                </Select>
-                {mutation.isError && (
-                  <span className="text-xs text-red-500">Failed to save</span>
-                )}
+              </Select>
+            </div>
+
+            <div className="border-t border-slate-100 pt-5 space-y-4 text-sm">
+              <div>
+                <p className="text-xs font-medium text-slate-400 mb-0.5">From</p>
+                <p className="text-slate-700">{ticket.fromName}</p>
+                <p className="text-xs text-slate-400">{ticket.fromEmail}</p>
               </div>
-            </div>
-
-            {/* Row 2 */}
-            <div>
-              <p className="text-xs font-medium text-slate-400 mb-0.5">Created</p>
-              <p className="text-slate-700">
-                {new Date(ticket.createdAt).toLocaleString(undefined, {
-                  year: "numeric",
-                  month: "short",
-                  day: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs font-medium text-slate-400 mb-0.5">Updated</p>
-              <p className="text-slate-700">
-                {new Date(ticket.updatedAt).toLocaleString(undefined, {
-                  year: "numeric",
-                  month: "short",
-                  day: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </p>
-            </div>
-          </div>
-
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">Message</p>
-            <div className="border border-slate-200 rounded-lg p-4 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
-              {ticket.body}
+              <div>
+                <p className="text-xs font-medium text-slate-400 mb-0.5">Created</p>
+                <p className="text-slate-700">{formatDate(ticket.createdAt)}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-slate-400 mb-0.5">Updated</p>
+                <p className="text-slate-700">{formatDate(ticket.updatedAt)}</p>
+              </div>
             </div>
           </div>
         </div>

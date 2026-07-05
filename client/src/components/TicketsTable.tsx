@@ -17,7 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { TicketStatus, TicketSource } from "core";
+import { TicketCategory, TicketStatus, TicketSource } from "core";
 
 export type AssignedUser = { id: string; name: string; email: string };
 
@@ -28,6 +28,7 @@ export type Ticket = {
   fromName: string;
   status: TicketStatus;
   source: TicketSource;
+  category: TicketCategory | null;
   createdAt: string;
   assignedTo: AssignedUser | null;
 };
@@ -44,6 +45,14 @@ const STATUS_LABELS: Record<TicketStatus, string> = {
   [TicketStatus.IN_PROGRESS]: "In Progress",
   [TicketStatus.RESOLVED]: "Resolved",
   [TicketStatus.CLOSED]: "Closed",
+};
+
+const CATEGORY_LABELS: Record<TicketCategory, string> = {
+  [TicketCategory.HARDWARE]: "Hardware",
+  [TicketCategory.SOFTWARE]: "Software",
+  [TicketCategory.NETWORK]: "Network",
+  [TicketCategory.ACCESS]: "Access",
+  [TicketCategory.OTHER]: "Other",
 };
 
 const columns: ColumnDef<Ticket>[] = [
@@ -92,6 +101,19 @@ const columns: ColumnDef<Ticket>[] = [
         >
           {STATUS_LABELS[status]}
         </span>
+      );
+    },
+  },
+  {
+    accessorKey: "category",
+    header: "Category",
+    enableSorting: false,
+    cell: ({ getValue }) => {
+      const category = getValue<TicketCategory | null>();
+      return category ? (
+        <span className="text-slate-600 text-sm">{CATEGORY_LABELS[category]}</span>
+      ) : (
+        <span className="text-slate-400 italic text-sm">—</span>
       );
     },
   },
@@ -181,6 +203,7 @@ export function TicketsTable({ tickets, isPending, error, sorting, onSortingChan
                 <TableCell><Skeleton className="h-4 w-8" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-56" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-28" /></TableCell>
                 <TableCell><Skeleton className="h-4 w-24" /></TableCell>
