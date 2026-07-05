@@ -2,9 +2,15 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import { useQuery } from "@tanstack/react-query";
 import type { SortingState } from "@tanstack/react-table";
-import { Search } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { TicketsTable, type Ticket } from "@/components/TicketsTable";
 import { TicketStatus } from "core";
 
@@ -64,6 +70,10 @@ export function TicketsPage() {
     );
   }
 
+  let statusLabel = "Status";
+  if (statusFilter.length === 1) statusLabel = STATUS_LABELS[statusFilter[0]];
+  else if (statusFilter.length > 1) statusLabel = `Status (${statusFilter.length})`;
+
   return (
     <div className="p-8 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
@@ -82,26 +92,30 @@ export function TicketsPage() {
           />
         </div>
 
-        <div className="flex flex-wrap gap-1.5">
-          {(Object.values(TicketStatus) as TicketStatus[]).map((status) => {
-            const active = statusFilter.includes(status);
-            return (
-              <Button
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className={`bg-transparent ${statusFilter.length > 0 ? "border-slate-800 text-slate-800" : ""}`}
+            >
+              {statusLabel}
+              <ChevronDown className="ml-1.5 h-3.5 w-3.5 opacity-60" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            {(Object.values(TicketStatus) as TicketStatus[]).map((status) => (
+              <DropdownMenuCheckboxItem
                 key={status}
-                variant="outline"
-                size="sm"
-                onClick={() => toggleStatus(status)}
-                className={
-                  active
-                    ? "border-slate-800 bg-slate-800 text-white hover:bg-slate-700 hover:text-white"
-                    : "bg-transparent"
-                }
+                checked={statusFilter.includes(status)}
+                onCheckedChange={() => toggleStatus(status)}
+                onSelect={(e) => e.preventDefault()}
               >
                 {STATUS_LABELS[status]}
-              </Button>
-            );
-          })}
-        </div>
+              </DropdownMenuCheckboxItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <TicketsTable

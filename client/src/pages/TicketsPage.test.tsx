@@ -38,13 +38,10 @@ describe("TicketsPage", () => {
       expect(screen.getByPlaceholderText("Search subject, sender…")).toBeInTheDocument();
     });
 
-    it("renders a status filter button for each status", () => {
+    it("renders a Status dropdown trigger", () => {
       mockedAxios.get = vi.fn().mockResolvedValue({ data: [] });
       renderWithQuery(<TicketsPage />);
-      expect(screen.getByRole("button", { name: "Open" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "In Progress" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Resolved" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Closed" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Status/i })).toBeInTheDocument();
     });
   });
 
@@ -84,40 +81,42 @@ describe("TicketsPage", () => {
   });
 
   describe("filter bar", () => {
-    it("clicking a status button gives it the active style", async () => {
+    it("selecting one status updates the trigger label to that status name", async () => {
       mockedAxios.get = vi.fn().mockResolvedValue({ data: [] });
       const user = userEvent.setup();
       renderWithQuery(<TicketsPage />);
 
-      const openButton = screen.getByRole("button", { name: "Open" });
-      expect(openButton).not.toHaveClass("bg-slate-800");
+      await user.click(screen.getByRole("button", { name: /Status/i }));
+      await user.click(screen.getByRole("menuitemcheckbox", { name: "Open" }));
+      await user.keyboard("{Escape}");
 
-      await user.click(openButton);
-      expect(openButton).toHaveClass("bg-slate-800");
+      expect(screen.getByRole("button", { name: /Open/i })).toBeInTheDocument();
     });
 
-    it("clicking an active status button deactivates it", async () => {
+    it("deselecting the only active status resets the trigger label to 'Status'", async () => {
       mockedAxios.get = vi.fn().mockResolvedValue({ data: [] });
       const user = userEvent.setup();
       renderWithQuery(<TicketsPage />);
 
-      const openButton = screen.getByRole("button", { name: "Open" });
-      await user.click(openButton);
-      await user.click(openButton);
-      expect(openButton).not.toHaveClass("bg-slate-800");
+      await user.click(screen.getByRole("button", { name: /Status/i }));
+      await user.click(screen.getByRole("menuitemcheckbox", { name: "Open" }));
+      await user.click(screen.getByRole("menuitemcheckbox", { name: "Open" }));
+      await user.keyboard("{Escape}");
+
+      expect(screen.getByRole("button", { name: /^Status$/i })).toBeInTheDocument();
     });
 
-    it("multiple status buttons can be active at the same time", async () => {
+    it("selecting multiple statuses shows a count in the trigger label", async () => {
       mockedAxios.get = vi.fn().mockResolvedValue({ data: [] });
       const user = userEvent.setup();
       renderWithQuery(<TicketsPage />);
 
-      await user.click(screen.getByRole("button", { name: "Open" }));
-      await user.click(screen.getByRole("button", { name: "Resolved" }));
+      await user.click(screen.getByRole("button", { name: /Status/i }));
+      await user.click(screen.getByRole("menuitemcheckbox", { name: "Open" }));
+      await user.click(screen.getByRole("menuitemcheckbox", { name: "Resolved" }));
+      await user.keyboard("{Escape}");
 
-      expect(screen.getByRole("button", { name: "Open" })).toHaveClass("bg-slate-800");
-      expect(screen.getByRole("button", { name: "Resolved" })).toHaveClass("bg-slate-800");
-      expect(screen.getByRole("button", { name: "In Progress" })).not.toHaveClass("bg-slate-800");
+      expect(screen.getByRole("button", { name: /Status \(2\)/i })).toBeInTheDocument();
     });
 
     it("typing into the search input updates its value", async () => {
