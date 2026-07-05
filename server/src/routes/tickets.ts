@@ -1,6 +1,6 @@
+import { inboundEmailSchema, TicketStatus } from "core";
 import { Router } from "express";
 import { type TicketWhereInput } from "../generated/prisma/models/Ticket";
-import { inboundEmailSchema, TicketStatus } from "core";
 import { prisma } from "../lib/prisma";
 import { validate } from "../lib/validate";
 import { requireAuth } from "../middleware/requireAuth";
@@ -23,13 +23,18 @@ router.get("/", requireAuth, async (req, res) => {
   const rawPage = req.query.page as string | undefined;
   const rawPageSize = req.query.pageSize as string | undefined;
 
-  const sortBy: SortableField = SORTABLE_FIELDS.includes(rawSortBy as SortableField)
+  const sortBy: SortableField = SORTABLE_FIELDS.includes(
+    rawSortBy as SortableField,
+  )
     ? (rawSortBy as SortableField)
     : "createdAt";
   const sortOrder: "asc" | "desc" = rawSortOrder === "asc" ? "asc" : "desc";
 
   const page = Math.max(1, parseInt(rawPage ?? "1") || 1);
-  const pageSize = Math.min(100, Math.max(1, parseInt(rawPageSize ?? "10") || 10));
+  const pageSize = Math.min(
+    100,
+    Math.max(1, parseInt(rawPageSize ?? "10") || 10),
+  );
 
   const andConditions: TicketWhereInput[] = [];
 
@@ -52,16 +57,23 @@ router.get("/", requireAuth, async (req, res) => {
     andConditions.push({ status: { in: statuses } });
   }
 
-  const assignedToTokens = rawAssignedTo?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
+  const assignedToTokens =
+    rawAssignedTo
+      ?.split(",")
+      .map((s) => s.trim())
+      .filter(Boolean) ?? [];
   if (assignedToTokens.length > 0) {
     const assignedToOr: TicketWhereInput[] = [];
     const userIds = assignedToTokens.filter((t) => t !== UNASSIGNED);
-    if (userIds.length > 0) assignedToOr.push({ assignedToId: { in: userIds } });
-    if (assignedToTokens.includes(UNASSIGNED)) assignedToOr.push({ assignedToId: null });
+    if (userIds.length > 0)
+      assignedToOr.push({ assignedToId: { in: userIds } });
+    if (assignedToTokens.includes(UNASSIGNED))
+      assignedToOr.push({ assignedToId: null });
     if (assignedToOr.length > 0) andConditions.push({ OR: assignedToOr });
   }
 
-  const where: TicketWhereInput = andConditions.length > 0 ? { AND: andConditions } : {};
+  const where: TicketWhereInput =
+    andConditions.length > 0 ? { AND: andConditions } : {};
 
   const select = {
     id: true,
@@ -85,7 +97,45 @@ router.get("/", requireAuth, async (req, res) => {
     prisma.ticket.count({ where }),
   ]);
 
-  res.json({ tickets, total, page, pageSize, totalPages: Math.max(1, Math.ceil(total / pageSize)) });
+  res.json({
+    tickets,
+    total,
+    page,
+    pageSize,
+    totalPages: Math.max(1, Math.ceil(total / pageSize)),
+  });
+});
+
+router.patch("/:id", requireAuth, async (req, res) => {
+  const id = parseInt(req.params.id as string);
+  if (isNaN(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid ticket id." });
+    return;
+  }
+
+  const { assignedToId } = req.body as { assignedToId?: string | null };
+
+  if (assignedToId !== null && assignedToId !== undefined) {
+    if (typeof assignedToId !== "string") {
+      res.status(400).json({ error: "assignedToId must be a string or null." });
+      return;
+    }
+    const user = await prisma.user.findUnique({
+      where: { id: assignedToId, deletedAt: null },
+    });
+    if (!user) {
+      res.status(404).json({ error: "User not found." });
+      return;
+    }
+  }
+
+  const ticket = await prisma.ticket.update({
+    where: { id },
+    data: { assignedToId: assignedToId ?? null },
+    include: { assignedTo: { select: { id: true, name: true, email: true } } },
+  });
+
+  res.json(ticket);
 });
 
 router.get("/:id", requireAuth, async (req, res) => {
@@ -125,8 +175,9 @@ router.post("/inbound-email", async (req, res) => {
   const secret = process.env.INBOUND_EMAIL_WEBHOOK_SECRET;
   if (secret) {
     const authHeader = req.headers["authorization"] ?? "";
-    const provided =
-      authHeader.startsWith("Bearer ") ? authHeader.slice(7) : authHeader;
+    const provided = authHeader.startsWith("Bearer ")
+      ? authHeader.slice(7)
+      : authHeader;
     const headerSecret = provided || req.headers["x-webhook-secret"];
     if (headerSecret !== secret) {
       res.status(401).json({ error: "Unauthorized." });
