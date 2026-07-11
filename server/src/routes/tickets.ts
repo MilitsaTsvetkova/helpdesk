@@ -1,8 +1,9 @@
 import { inboundEmailSchema, patchTicketSchema, createReplySchema, polishReplySchema, TicketCategory, TicketStatus, TicketSource } from "core";
 import { Router } from "express";
-import { generateText } from "ai";
+import { generateObject, generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { type TicketWhereInput } from "../generated/prisma/models/Ticket";
+import { type Ticket } from "../generated/prisma/client";
 import { prisma } from "../lib/prisma";
 import { validate } from "../lib/validate";
 import { requireAuth } from "../middleware/requireAuth";
@@ -319,6 +320,34 @@ function htmlToText(html: string): string {
     .trim();
 }
 
+// Classifies a ticket into a TicketCategory using GPT and persists the result.
+// Runs after the ticket response has already been sent, so callers must not await this.
+async function classifyTicket(ticket: Ticket): Promise<void> {
+  const { id: ticketId, subject, body } = ticket;
+  try {
+    const { object: category } = await generateObject({
+      model: openai("gpt-5.4-nano"),
+      output: "enum",
+      enum: VALID_CATEGORIES,
+      system:
+        "You classify IT helpdesk tickets into exactly one category.\n\n" +
+        "- HARDWARE: physical devices (laptops, monitors, keyboards, printers, peripherals).\n" +
+        "- SOFTWARE: applications, operating systems, installs, bugs, licensing.\n" +
+        "- NETWORK: connectivity, VPN, wifi, DNS, internal services being unreachable.\n" +
+        "- ACCESS: logins, passwords, permissions, account provisioning/deprovisioning for internal IT systems.\n" +
+        "- OTHER: anything that is not clearly an IT helpdesk issue, or is ambiguous, unclear, or off-topic (e.g. billing, refunds, sales, HR, general questions). " +
+        "When in doubt, choose OTHER rather than forcing a fit into one of the IT categories.",
+      prompt: `Subject: ${subject}\n\nBody: ${body}`,
+    });
+    await prisma.ticket.update({
+      where: { id: ticketId },
+      data: { category: category as TicketCategory },
+    });
+  } catch (err) {
+    console.error(`Failed to classify ticket ${ticketId}:`, err);
+  }
+}
+
 router.post("/inbound-email", async (req, res) => {
   const secret = process.env.INBOUND_EMAIL_WEBHOOK_SECRET;
   if (secret) {
@@ -359,16 +388,13 @@ router.post("/inbound-email", async (req, res) => {
       source: "EMAIL",
       status: "OPEN",
     },
-    select: {
-      id: true,
-      subject: true,
-      fromEmail: true,
-      status: true,
-      createdAt: true,
-    },
   });
 
   res.status(201).json(ticket);
+
+  // Fire-and-forget: classify in the background, don't block the webhook response.
+  void classifyTicket(ticket);
 });
 
 export default router;
+
