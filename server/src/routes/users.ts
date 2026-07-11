@@ -137,10 +137,16 @@ router.delete("/:id", requireAuth, requireAdmin, async (req, res) => {
     return;
   }
 
-  await prisma.user.update({
-    where: { id },
-    data: { deletedAt: new Date() },
-  });
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    }),
+    prisma.ticket.updateMany({
+      where: { assignedToId: id },
+      data: { assignedToId: null },
+    }),
+  ]);
 
   res.status(204).send();
 });
