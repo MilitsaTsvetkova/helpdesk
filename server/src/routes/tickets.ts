@@ -9,7 +9,7 @@ const UNASSIGNED = "unassigned";
 
 const router = Router();
 
-const SORTABLE_FIELDS = ["subject", "fromName", "status", "createdAt"] as const;
+const SORTABLE_FIELDS = ["subject", "fromName", "status", "createdAt", "updatedAt"] as const;
 type SortableField = (typeof SORTABLE_FIELDS)[number];
 
 const VALID_STATUSES = Object.values(TicketStatus) as string[];
@@ -94,6 +94,7 @@ router.get("/", requireAuth, async (req, res) => {
     source: true,
     category: true,
     createdAt: true,
+    updatedAt: true,
     assignedTo: { select: { id: true, name: true, email: true } },
   };
 

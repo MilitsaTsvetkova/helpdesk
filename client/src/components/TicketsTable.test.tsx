@@ -12,6 +12,7 @@ const TICKETS: Ticket[] = [
     status: "OPEN",
     source: "EMAIL",
     createdAt: "2024-06-01T10:00:00.000Z",
+    updatedAt: "2024-06-05T10:00:00.000Z",
     assignedTo: null,
   },
   {
@@ -22,6 +23,7 @@ const TICKETS: Ticket[] = [
     status: "RESOLVED",
     source: "EMAIL",
     createdAt: "2024-06-02T10:00:00.000Z",
+    updatedAt: "2024-06-03T10:00:00.000Z",
     assignedTo: { id: "u1", name: "Carol Agent", email: "carol@example.com" },
   },
 ];
@@ -52,6 +54,7 @@ describe("TicketsTable", () => {
       expect(screen.getByText("From")).toBeInTheDocument();
       expect(screen.getByText("Status")).toBeInTheDocument();
       expect(screen.getByText("Received")).toBeInTheDocument();
+      expect(screen.getByText("Updated")).toBeInTheDocument();
     });
 
     it("does not render ticket data while pending", () => {
@@ -101,6 +104,16 @@ describe("TicketsTable", () => {
     it("formats createdAt as a human-readable date", () => {
       render_({ tickets: [TICKETS[0]] });
       const formatted = new Date("2024-06-01T10:00:00.000Z").toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+      expect(screen.getByText(formatted)).toBeInTheDocument();
+    });
+
+    it("formats updatedAt as a human-readable date", () => {
+      render_({ tickets: [TICKETS[0]] });
+      const formatted = new Date("2024-06-05T10:00:00.000Z").toLocaleDateString(undefined, {
         year: "numeric",
         month: "short",
         day: "numeric",
