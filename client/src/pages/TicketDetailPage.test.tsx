@@ -504,4 +504,96 @@ describe("TicketDetailPage", () => {
       });
     });
   });
+
+  describe("polish reply", () => {
+    it("renders the Polish button", async () => {
+      mockGet();
+      renderWithQuery(<TicketDetailPage />);
+      await waitFor(() => screen.getByRole("heading", { name: "Keyboard not working" }));
+      expect(screen.getByRole("button", { name: /polish/i })).toBeInTheDocument();
+    });
+
+    it("disables the Polish button when the textarea is empty", async () => {
+      mockGet();
+      renderWithQuery(<TicketDetailPage />);
+      await waitFor(() => screen.getByRole("heading", { name: "Keyboard not working" }));
+      expect(screen.getByRole("button", { name: /polish/i })).toBeDisabled();
+    });
+
+    it("enables the Polish button when the textarea has text", async () => {
+      mockGet();
+      renderWithQuery(<TicketDetailPage />);
+      await waitFor(() => screen.getByRole("heading", { name: "Keyboard not working" }));
+      fireEvent.change(screen.getByPlaceholderText("Write a reply…"), {
+        target: { value: "hey thanks for reachin out" },
+      });
+      expect(screen.getByRole("button", { name: /polish/i })).not.toBeDisabled();
+    });
+
+    it("calls POST /api/tickets/42/replies/polish with the body and withCredentials", async () => {
+      mockGet();
+      mockedAxios.post = vi.fn().mockResolvedValue({ data: { text: "Thanks for reaching out!" } });
+      renderWithQuery(<TicketDetailPage />);
+      await waitFor(() => screen.getByRole("heading", { name: "Keyboard not working" }));
+      fireEvent.change(screen.getByPlaceholderText("Write a reply…"), {
+        target: { value: "hey thanks for reachin out" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: /polish/i }));
+      await waitFor(() => {
+        expect(mockedAxios.post).toHaveBeenCalledWith(
+          "/api/tickets/42/replies/polish",
+          { body: "hey thanks for reachin out" },
+          { withCredentials: true },
+        );
+      });
+    });
+
+    it("replaces the textarea content with the polished text on success", async () => {
+      mockGet();
+      mockedAxios.post = vi.fn().mockResolvedValue({ data: { text: "Thanks for reaching out!" } });
+      renderWithQuery(<TicketDetailPage />);
+      await waitFor(() => screen.getByRole("heading", { name: "Keyboard not working" }));
+      const textarea = screen.getByPlaceholderText("Write a reply…");
+      fireEvent.change(textarea, { target: { value: "hey thanks for reachin out" } });
+      fireEvent.click(screen.getByRole("button", { name: /polish/i }));
+      await waitFor(() => {
+        expect(textarea).toHaveValue("Thanks for reaching out!");
+      });
+    });
+
+    it("shows 'Polishing…' and disables Send reply while the polish request is in flight", async () => {
+      mockGet();
+      let resolvePost: (value: { data: { text: string } }) => void;
+      mockedAxios.post = vi.fn().mockReturnValue(
+        new Promise((resolve) => {
+          resolvePost = resolve;
+        }),
+      );
+      renderWithQuery(<TicketDetailPage />);
+      await waitFor(() => screen.getByRole("heading", { name: "Keyboard not working" }));
+      fireEvent.change(screen.getByPlaceholderText("Write a reply…"), {
+        target: { value: "hey thanks for reachin out" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: /polish/i }));
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: /polishing/i })).toBeDisabled();
+        expect(screen.getByRole("button", { name: /send reply/i })).toBeDisabled();
+      });
+      resolvePost!({ data: { text: "Thanks for reaching out!" } });
+    });
+
+    it("shows 'Failed to polish reply' when the POST fails", async () => {
+      mockGet();
+      mockedAxios.post = vi.fn().mockRejectedValue(new Error("Server error"));
+      renderWithQuery(<TicketDetailPage />);
+      await waitFor(() => screen.getByRole("heading", { name: "Keyboard not working" }));
+      fireEvent.change(screen.getByPlaceholderText("Write a reply…"), {
+        target: { value: "hey thanks for reachin out" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: /polish/i }));
+      await waitFor(() => {
+        expect(screen.getByText("Failed to polish reply")).toBeInTheDocument();
+      });
+    });
+  });
 });
