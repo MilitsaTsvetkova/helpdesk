@@ -7,6 +7,15 @@ export const createReplySchema = z.object({
 
 export type CreateReplyData = z.infer<typeof createReplySchema>;
 
+export const polishReplySchema = z.object({
+  body: z
+    .string()
+    .min(1, "Reply body is required.")
+    .max(5000, "Reply body is too long."),
+});
+
+export type PolishReplyData = z.infer<typeof polishReplySchema>;
+
 export const patchTicketSchema = z.object({
   assignedToId: z.string().nullable().optional(),
   status: z

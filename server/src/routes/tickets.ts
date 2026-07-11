@@ -1,5 +1,7 @@
-import { inboundEmailSchema, patchTicketSchema, createReplySchema, TicketCategory, TicketStatus, TicketSource } from "core";
+import { inboundEmailSchema, patchTicketSchema, createReplySchema, polishReplySchema, TicketCategory, TicketStatus, TicketSource } from "core";
 import { Router } from "express";
+import { generateText } from "ai";
+import { openai } from "@ai-sdk/openai";
 import { type TicketWhereInput } from "../generated/prisma/models/Ticket";
 import { prisma } from "../lib/prisma";
 import { validate } from "../lib/validate";
@@ -234,6 +236,30 @@ router.post("/:id/replies", requireAuth, async (req, res) => {
   });
 
   res.status(201).json(reply);
+});
+
+router.post("/:id/replies/polish", requireAuth, async (req, res) => {
+  const id = parseInt(req.params.id as string);
+  if (isNaN(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid ticket id." });
+    return;
+  }
+
+  const data = validate(polishReplySchema, req.body, res);
+  if (!data) return;
+
+  try {
+    const { text } = await generateText({
+      model: openai("gpt-5.4-nano"),
+      instructions:
+        "You polish customer support agent replies. Improve grammar, clarity, and tone while preserving the original meaning and intent. Return only the improved reply text with no preamble, explanation, or surrounding quotes.",
+      prompt: data.body,
+    });
+    res.json({ text: text.trim() });
+  } catch (err) {
+    console.error("Failed to polish reply:", err);
+    res.status(502).json({ error: "Failed to polish reply." });
+  }
 });
 
 // Strips HTML tags to produce a plain-text fallback body.

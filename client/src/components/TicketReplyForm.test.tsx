@@ -8,6 +8,7 @@ function renderForm(overrides: Partial<React.ComponentProps<typeof TicketReplyFo
   const textareaRef = createRef<HTMLTextAreaElement>();
   const onReplyBodyChange = vi.fn();
   const onSendReply = vi.fn();
+  const onPolishReply = vi.fn();
   render(
     <TicketReplyForm
       replyBody=""
@@ -15,11 +16,14 @@ function renderForm(overrides: Partial<React.ComponentProps<typeof TicketReplyFo
       onSendReply={onSendReply}
       isPending={false}
       isError={false}
+      onPolishReply={onPolishReply}
+      isPolishing={false}
+      isPolishError={false}
       textareaRef={textareaRef}
       {...overrides}
     />
   );
-  return { onReplyBodyChange, onSendReply };
+  return { onReplyBodyChange, onSendReply, onPolishReply };
 }
 
 describe("TicketReplyForm", () => {
@@ -87,5 +91,38 @@ describe("TicketReplyForm", () => {
   it("does not show an error message when isError is false", () => {
     renderForm({ isError: false });
     expect(screen.queryByText("Failed to send reply")).not.toBeInTheDocument();
+  });
+
+  it("disables the polish button when the reply body is empty", () => {
+    renderForm({ replyBody: "" });
+    expect(screen.getByRole("button", { name: "Polish" })).toBeDisabled();
+  });
+
+  it("enables the polish button when the reply body has content", () => {
+    renderForm({ replyBody: "Thanks for reaching out" });
+    expect(screen.getByRole("button", { name: "Polish" })).toBeEnabled();
+  });
+
+  it("calls onPolishReply when the polish button is clicked", async () => {
+    const user = userEvent.setup();
+    const { onPolishReply } = renderForm({ replyBody: "Thanks for reaching out" });
+    await user.click(screen.getByRole("button", { name: "Polish" }));
+    expect(onPolishReply).toHaveBeenCalled();
+  });
+
+  it("shows 'Polishing…' and disables both buttons while polishing", () => {
+    renderForm({ replyBody: "Thanks for reaching out", isPolishing: true });
+    expect(screen.getByRole("button", { name: "Polishing…" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Send reply" })).toBeDisabled();
+  });
+
+  it("shows an error message when isPolishError is true", () => {
+    renderForm({ isPolishError: true });
+    expect(screen.getByText("Failed to polish reply")).toBeInTheDocument();
+  });
+
+  it("does not show an error message when isPolishError is false", () => {
+    renderForm({ isPolishError: false });
+    expect(screen.queryByText("Failed to polish reply")).not.toBeInTheDocument();
   });
 });

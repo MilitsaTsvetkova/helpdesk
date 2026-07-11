@@ -9,7 +9,7 @@ AI-powered ticket management system. See `project-scope.md` for full feature lis
 - **Database**: PostgreSQL + Prisma ORM
 - **Auth**: Better Auth with database sessions (`express-session` + `connect-pg-simple`)
 - **UI**: Tailwind CSS v4 (`@tailwindcss/vite` plugin) + shadcn/ui components
-- **AI**: Claude API (`claude-sonnet-4-6`)
+- **AI**: Claude API (`claude-sonnet-4-6`, planned — see `implementation-plan.md`); Vercel AI SDK (`ai` + `@ai-sdk/openai`) is already wired up for the reply-polish feature (see [AI Reply Polish](#ai-reply-polish))
 - **Infrastructure**: Docker + cloud provider (AWS / Railway / Fly.io)
 
 ## Project Structure
@@ -55,7 +55,7 @@ helpdesk/
 │       │   ├── requireAdmin.ts
 │       │   └── requireAuth.ts
 │       ├── routes/
-│       │   ├── tickets.ts    GET /api/tickets, GET /api/tickets/:id, POST /api/tickets/inbound-email
+│       │   ├── tickets.ts    GET /api/tickets, GET /api/tickets/:id, POST /api/tickets/inbound-email, POST /api/tickets/:id/replies/polish
 │       │   └── users.ts      CRUD /api/users, GET /api/users/assignable
 │       └── index.ts          app entry point
 ├── e2e/                      Playwright E2E tests
@@ -76,6 +76,8 @@ Vite proxies `/api/*` → `http://localhost:3000`.
 The seed reads `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` from `server/.env`. Run it any time the dev DB is reset — without it, no admin user exists and sign-in will fail.
 
 The seed is idempotent and also creates three agent accounts (`alice@example.com`, `bob@example.com`, `carol@example.com`) and 8 sample tickets with assignments. Tickets are only seeded when the `ticket` table is empty.
+
+`bun run dev:server` runs with cwd `server/` (`bun run --cwd server dev`), so `dotenv/config` in `server/src/index.ts` loads `server/.env` only — **not** the repo-root `.env`. All server-side secrets (`OPENAI_API_KEY`, `DATABASE_URL`, `BETTER_AUTH_SECRET`, etc.) must live in `server/.env`.
 
 ## Data Fetching
 
@@ -116,6 +118,25 @@ Follow React's [Thinking in React](https://react.dev/learn/thinking-in-react) me
 **Inbound email webhook** (`POST /api/tickets/inbound-email`) is intentionally public — no session required, called by the email provider. Protect it with `INBOUND_EMAIL_WEBHOOK_SECRET` instead (see `.env.example`).
 
 **`GET /api/users/assignable`** is `requireAuth` only (not admin-gated) — it returns `{id, name}[]` for all active users and is used to populate the "Assigned To" filter dropdown on the tickets page.
+
+## AI Reply Polish
+
+`POST /api/tickets/:id/replies/polish` (`requireAuth`) rewrites an agent's draft reply for grammar/clarity/tone using the **Vercel AI SDK** (`ai` + `@ai-sdk/openai`) and `gpt-5.4-nano`. Request/response validated with `polishReplySchema` from `core`.
+
+```ts
+import { generateText } from "ai";
+import { openai } from "@ai-sdk/openai";
+
+const { text } = await generateText({
+  model: openai("gpt-5.4-nano"),
+  instructions: "…",
+  prompt: draftBody,
+});
+```
+
+- Requires `OPENAI_API_KEY` in `server/.env` (see the cwd note in [Dev Commands](#dev-commands)) — `openai(...)` loads it automatically, no need to pass `apiKey` explicitly.
+- Client: `TicketReplyForm` renders a "Polish" button (before "Send reply") that calls this endpoint via a TanStack Query mutation in `TicketDetailPage` and overwrites the draft textarea on success. Both buttons disable while either mutation is in flight.
+- Errors are logged server-side with `console.error` before returning a generic `502` — check server logs first when polish fails silently.
 
 ## UI Components
 

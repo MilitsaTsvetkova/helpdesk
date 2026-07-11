@@ -59,6 +59,15 @@ async function postReply(id: string, body: string): Promise<TicketReply> {
   return res.data;
 }
 
+async function polishReply(id: string, body: string): Promise<string> {
+  const res = await axios.post<{ text: string }>(
+    `/api/tickets/${id}/replies/polish`,
+    { body },
+    { withCredentials: true }
+  );
+  return res.data.text;
+}
+
 export function TicketDetailPage() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
@@ -101,6 +110,13 @@ export function TicketDetailPage() {
     },
   });
 
+  const polishMutation = useMutation({
+    mutationFn: (body: string) => polishReply(id!, body),
+    onSuccess: (polishedBody) => {
+      setReplyBody(polishedBody);
+    },
+  });
+
   function handleAssign(value: string) {
     mutation.mutate({ assignedToId: value === UNASSIGNED_VALUE ? null : value });
   }
@@ -140,6 +156,9 @@ export function TicketDetailPage() {
               onSendReply={() => replyMutation.mutate(replyBody.trim())}
               isPending={replyMutation.isPending}
               isError={replyMutation.isError}
+              onPolishReply={() => polishMutation.mutate(replyBody.trim())}
+              isPolishing={polishMutation.isPending}
+              isPolishError={polishMutation.isError}
               textareaRef={textareaRef}
             />
           </div>

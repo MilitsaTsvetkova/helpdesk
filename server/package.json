@@ -11,8 +11,10 @@
     "seed": "bun prisma/seed.ts"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^4.0.11",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "ai": "^7.0.22",
     "bcryptjs": "^3.0.3",
     "better-auth": "^1.6.20",
     "core": "workspace:*",
