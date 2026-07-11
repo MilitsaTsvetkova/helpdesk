@@ -596,4 +596,96 @@ describe("TicketDetailPage", () => {
       });
     });
   });
+
+  describe("ticket summary", () => {
+    it("renders the Summarize button", async () => {
+      mockGet();
+      renderWithQuery(<TicketDetailPage />);
+      await waitFor(() => screen.getByRole("heading", { name: "Keyboard not working" }));
+      expect(screen.getByRole("button", { name: /summarize/i })).toBeInTheDocument();
+    });
+
+    it("does not show a summary before the button is clicked", async () => {
+      mockGet();
+      renderWithQuery(<TicketDetailPage />);
+      await waitFor(() => screen.getByRole("heading", { name: "Keyboard not working" }));
+      expect(screen.queryByText("The customer is having a keyboard issue.")).not.toBeInTheDocument();
+    });
+
+    it("calls POST /api/tickets/42/summarize with withCredentials", async () => {
+      mockGet();
+      mockedAxios.post = vi.fn().mockResolvedValue({ data: { text: "The customer is having a keyboard issue." } });
+      renderWithQuery(<TicketDetailPage />);
+      await waitFor(() => screen.getByRole("heading", { name: "Keyboard not working" }));
+      fireEvent.click(screen.getByRole("button", { name: /summarize/i }));
+      await waitFor(() => {
+        expect(mockedAxios.post).toHaveBeenCalledWith(
+          "/api/tickets/42/summarize",
+          {},
+          { withCredentials: true },
+        );
+      });
+    });
+
+    it("renders the summary text on success", async () => {
+      mockGet();
+      mockedAxios.post = vi.fn().mockResolvedValue({ data: { text: "The customer is having a keyboard issue." } });
+      renderWithQuery(<TicketDetailPage />);
+      await waitFor(() => screen.getByRole("heading", { name: "Keyboard not working" }));
+      fireEvent.click(screen.getByRole("button", { name: /summarize/i }));
+      await waitFor(() => {
+        expect(screen.getByText("The customer is having a keyboard issue.")).toBeInTheDocument();
+      });
+    });
+
+    it("regenerates the summary on every click", async () => {
+      mockGet();
+      mockedAxios.post = vi
+        .fn()
+        .mockResolvedValueOnce({ data: { text: "First summary." } })
+        .mockResolvedValueOnce({ data: { text: "Second summary." } });
+      renderWithQuery(<TicketDetailPage />);
+      await waitFor(() => screen.getByRole("heading", { name: "Keyboard not working" }));
+
+      fireEvent.click(screen.getByRole("button", { name: /summarize/i }));
+      await waitFor(() => {
+        expect(screen.getByText("First summary.")).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: /summarize/i }));
+      await waitFor(() => {
+        expect(screen.getByText("Second summary.")).toBeInTheDocument();
+        expect(screen.queryByText("First summary.")).not.toBeInTheDocument();
+      });
+      expect(mockedAxios.post).toHaveBeenCalledTimes(2);
+    });
+
+    it("shows 'Summarizing…' while the request is in flight", async () => {
+      mockGet();
+      let resolvePost: (value: { data: { text: string } }) => void;
+      mockedAxios.post = vi.fn().mockReturnValue(
+        new Promise((resolve) => {
+          resolvePost = resolve;
+        }),
+      );
+      renderWithQuery(<TicketDetailPage />);
+      await waitFor(() => screen.getByRole("heading", { name: "Keyboard not working" }));
+      fireEvent.click(screen.getByRole("button", { name: /summarize/i }));
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: /summarizing/i })).toBeDisabled();
+      });
+      resolvePost!({ data: { text: "The customer is having a keyboard issue." } });
+    });
+
+    it("shows 'Failed to summarize ticket' when the POST fails", async () => {
+      mockGet();
+      mockedAxios.post = vi.fn().mockRejectedValue(new Error("Server error"));
+      renderWithQuery(<TicketDetailPage />);
+      await waitFor(() => screen.getByRole("heading", { name: "Keyboard not working" }));
+      fireEvent.click(screen.getByRole("button", { name: /summarize/i }));
+      await waitFor(() => {
+        expect(screen.getByText("Failed to summarize ticket")).toBeInTheDocument();
+      });
+    });
+  });
 });

@@ -13,6 +13,7 @@ import { TicketReplyThread, type TicketReply } from "@/components/TicketReplyThr
 import { TicketReplyForm } from "@/components/TicketReplyForm";
 import { TicketDetailSkeleton } from "@/components/TicketDetailSkeleton";
 import { TicketDetails } from "@/components/TicketDetails";
+import { TicketSummary } from "@/components/TicketSummary";
 import { BackLink } from "@/components/BackLink";
 
 type AssignableUser = { id: string; name: string };
@@ -68,10 +69,20 @@ async function polishReply(id: string, body: string): Promise<string> {
   return res.data.text;
 }
 
+async function summarizeTicket(id: string): Promise<string> {
+  const res = await axios.post<{ text: string }>(
+    `/api/tickets/${id}/summarize`,
+    {},
+    { withCredentials: true }
+  );
+  return res.data.text;
+}
+
 export function TicketDetailPage() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const [replyBody, setReplyBody] = useState("");
+  const [summary, setSummary] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const { data: ticket, isPending, error } = useQuery({
@@ -117,6 +128,13 @@ export function TicketDetailPage() {
     },
   });
 
+  const summarizeMutation = useMutation({
+    mutationFn: () => summarizeTicket(id!),
+    onSuccess: (text) => {
+      setSummary(text);
+    },
+  });
+
   function handleAssign(value: string) {
     mutation.mutate({ assignedToId: value === UNASSIGNED_VALUE ? null : value });
   }
@@ -147,6 +165,13 @@ export function TicketDetailPage() {
         <div className="grid grid-cols-[1fr_260px] gap-8 items-start">
           <div className="space-y-6">
             <TicketDetails subject={ticket.subject} body={ticket.body} />
+
+            <TicketSummary
+              summary={summary}
+              onSummarize={() => summarizeMutation.mutate()}
+              isPending={summarizeMutation.isPending}
+              isError={summarizeMutation.isError}
+            />
 
             <TicketReplyThread replies={replies} />
 

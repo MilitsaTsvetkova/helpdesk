@@ -262,6 +262,49 @@ router.post("/:id/replies/polish", requireAuth, async (req, res) => {
   }
 });
 
+router.post("/:id/summarize", requireAuth, async (req, res) => {
+  const id = parseInt(req.params.id as string);
+  if (isNaN(id) || id <= 0) {
+    res.status(400).json({ error: "Invalid ticket id." });
+    return;
+  }
+
+  const ticket = await prisma.ticket.findUnique({
+    where: { id },
+    select: { subject: true, body: true },
+  });
+  if (!ticket) {
+    res.status(404).json({ error: "Ticket not found." });
+    return;
+  }
+
+  const replies = await prisma.ticketReply.findMany({
+    where: { ticketId: id },
+    orderBy: { createdAt: "asc" },
+    select: { body: true, senderType: true, author: { select: { name: true } } },
+  });
+
+  const conversation = [
+    `Customer: ${ticket.body}`,
+    ...replies.map(
+      (r) => `${r.senderType === "AGENT" ? `Agent (${r.author.name})` : "Customer"}: ${r.body}`,
+    ),
+  ].join("\n\n");
+
+  try {
+    const { text } = await generateText({
+      model: openai("gpt-5.4-nano"),
+      instructions:
+        "You summarize customer support ticket conversations for agents. Produce a concise summary (2-4 sentences) covering the customer's issue, key details, and the current state of the conversation. Return only the summary text with no preamble, explanation, or surrounding quotes.",
+      prompt: `Subject: ${ticket.subject}\n\n${conversation}`,
+    });
+    res.json({ text: text.trim() });
+  } catch (err) {
+    console.error("Failed to summarize ticket:", err);
+    res.status(502).json({ error: "Failed to summarize ticket." });
+  }
+});
+
 // Strips HTML tags to produce a plain-text fallback body.
 function htmlToText(html: string): string {
   return html
