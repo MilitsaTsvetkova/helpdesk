@@ -84,6 +84,21 @@ The seed is idempotent and also creates three agent accounts (`alice@example.com
 - `QueryClientProvider` is already mounted in `main.tsx`
 - Extract query functions as standalone `async function` above the component, not inline
 
+## Component Composition
+
+Follow React's [Thinking in React](https://react.dev/learn/thinking-in-react) methodology when building or splitting components:
+
+1. **Break the UI into a component hierarchy** — each component should do one thing. If a chunk of JSX has its own clear responsibility (a section heading, its own list of props, or would need a comment to explain what it's for), pull it into its own component. Name components after what they render (e.g. `TicketReplyThread`), not how they're wired up.
+2. **Build from props, not state** — presentational components render purely from the props they're given. They don't call `axios` or TanStack Query hooks directly — only pages/containers do (see [Data Fetching](#data-fetching)).
+3. **Find the minimal but complete state** — don't store data that's already available as a prop or can be derived at render time. If it can be computed from existing props/state, it isn't state.
+4. **Identify where state should live** — for each piece of state, find every component that needs it and lift it to their closest common parent. In this app, pages (e.g. `TicketDetailPage`) own `useQuery`/`useMutation` state and pass data + handlers down as props; child components never fetch or mutate directly.
+5. **Add inverse data flow** — child components receive `on<Event>` callback props (e.g. `onStatusChange`, `onSendReply`) and call them upward; they never own the mutation logic themselves. This keeps the page as the single source of truth.
+
+**Project conventions:**
+- One component = one responsibility. Prefer several small, named components over one large component with conditional sections (see `client/src/pages/TicketDetailPage.tsx` composing `TicketDetails`, `TicketReplyThread`, `TicketReplyForm`, and `TicketUpdatePanel`).
+- A component owns the types, label maps, and constants it renders (e.g. `TicketUpdatePanel` exports `TicketDetailData` and `UNASSIGNED_VALUE`); pages import and pass these back down rather than redefining them.
+- Keep composition explicit in the page — pages assemble child components directly in JSX rather than hiding them behind another wrapper component.
+
 ## Access Control
 
 **Server middleware** — two guards in `server/src/middleware/`:
