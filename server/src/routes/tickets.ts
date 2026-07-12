@@ -2,12 +2,15 @@ import { inboundEmailSchema, patchTicketSchema, createReplySchema, polishReplySc
 import { Router } from "express";
 import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
+import * as Sentry from "@sentry/node";
+import Parse from "@sendgrid/inbound-mail-parser";
 import { type TicketWhereInput } from "../generated/prisma/models/Ticket";
 import { prisma } from "../lib/prisma";
 import { validate } from "../lib/validate";
 import { requireAuth } from "../middleware/requireAuth";
 import { enqueueClassifyTicket } from "../jobs/classifyTicket";
 import { enqueueAutoResolveTicket } from "../jobs/autoResolveTicket";
+import { enqueueSendReplyEmail } from "../jobs/sendReplyEmail";
 
 const UNASSIGNED = "unassigned";
 
@@ -238,6 +241,9 @@ router.post("/:id/replies", requireAuth, async (req, res) => {
   });
 
   res.status(201).json(reply);
+
+  // Email the customer out-of-process so it never blocks this response.
+  void enqueueSendReplyEmail(reply.id);
 });
 
 router.post("/:id/replies/polish", requireAuth, async (req, res) => {
@@ -260,6 +266,7 @@ router.post("/:id/replies/polish", requireAuth, async (req, res) => {
     res.json({ text: text.trim() });
   } catch (err) {
     console.error("Failed to polish reply:", err);
+    Sentry.captureException(err);
     res.status(502).json({ error: "Failed to polish reply." });
   }
 });
@@ -307,6 +314,7 @@ router.post("/:id/summarize", requireAuth, async (req, res) => {
     res.json({ text: text.trim() });
   } catch (err) {
     console.error("Failed to summarize ticket:", err);
+    Sentry.captureException(err);
     res.status(502).json({ error: "Failed to summarize ticket." });
   }
 });
@@ -325,6 +333,40 @@ function htmlToText(html: string): string {
     .trim();
 }
 
+// SendGrid's "from" field is a raw header, e.g. `"Jane Doe" <jane@example.com>`.
+function parseFromHeader(raw: string): { email: string; name: string } {
+  const match = raw.match(/^\s*"?([^"<]*)"?\s*<([^<>]+)>\s*$/);
+  if (match) {
+    const email = match[2]!.trim();
+    const name = match[1]!.trim();
+    return { email, name: name || email };
+  }
+  const email = raw.trim();
+  return { email, name: email };
+}
+
+function extractMessageId(headers?: string): string | undefined {
+  return headers?.match(/^Message-ID:\s*<?([^>\s]+)>?/im)?.[1];
+}
+
+// Maps SendGrid's raw Inbound Parse fields onto the normalized inboundEmailSchema shape.
+function mapSendGridPayload(fields: Record<string, unknown>) {
+  const { email: from, name: fromName } = parseFromHeader(
+    typeof fields.from === "string" ? fields.from : "",
+  );
+
+  return {
+    from,
+    fromName,
+    subject: typeof fields.subject === "string" ? fields.subject : "",
+    text: typeof fields.text === "string" ? fields.text : undefined,
+    html: typeof fields.html === "string" ? fields.html : undefined,
+    messageId: extractMessageId(
+      typeof fields.headers === "string" ? fields.headers : undefined,
+    ),
+  };
+}
+
 router.post("/inbound-email", async (req, res) => {
   const secret = process.env.INBOUND_EMAIL_WEBHOOK_SECRET;
   if (secret) {
@@ -339,7 +381,16 @@ router.post("/inbound-email", async (req, res) => {
     }
   }
 
-  const data = validate(inboundEmailSchema, req.body, res);
+  let payload: unknown = req.body;
+  if (req.is("multipart/form-data")) {
+    const parser = new Parse(
+      { keys: ["from", "subject", "text", "html", "headers"] },
+      { body: req.body, files: (req.files as Express.Multer.File[]) ?? [] },
+    );
+    payload = mapSendGridPayload(parser.keyValues());
+  }
+
+  const data = validate(inboundEmailSchema, payload, res);
   if (!data) return;
 
   const { from, fromName, subject, text, html, messageId } = data;

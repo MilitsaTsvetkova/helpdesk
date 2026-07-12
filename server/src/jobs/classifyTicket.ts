@@ -1,5 +1,6 @@
 import { generateObject } from "ai";
 import { openai } from "@ai-sdk/openai";
+import * as Sentry from "@sentry/node";
 import { TicketCategory } from "core";
 import { boss } from "../lib/boss";
 import { prisma } from "../lib/prisma";
@@ -27,6 +28,7 @@ export async function enqueueClassifyTicket(ticket: Ticket): Promise<void> {
     } satisfies ClassifyTicketJobData);
   } catch (err) {
     console.error(`Failed to enqueue classification for ticket ${ticketId}:`, err);
+    Sentry.captureException(err);
   }
 }
 

@@ -138,6 +138,34 @@ const { text } = await generateText({
 - Client: `TicketReplyForm` renders a "Polish" button (before "Send reply") that calls this endpoint via a TanStack Query mutation in `TicketDetailPage` and overwrites the draft textarea on success. Both buttons disable while either mutation is in flight.
 - Errors are logged server-side with `console.error` before returning a generic `502` — check server logs first when polish fails silently.
 
+## Outbound Reply Email
+
+Agent replies (`POST /api/tickets/:id/replies`) and AI auto-resolutions (`server/src/jobs/autoResolveTicket.ts`) both email the customer via **`@sendgrid/mail`**, sent through the `send-reply-email` pg-boss queue (`server/src/jobs/sendReplyEmail.ts`) so the SendGrid API call never blocks the request/job that created the reply.
+
+```ts
+import sgMail from "@sendgrid/mail";
+
+sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
+await sgMail.send({
+  to: { email: ticket.fromEmail, name: ticket.fromName },
+  from: process.env.SENDGRID_FROM_EMAIL!,
+  subject: `Re: ${ticket.subject}`,
+  text: reply.body,
+});
+```
+
+- Requires `SENDGRID_API_KEY` and `SENDGRID_FROM_EMAIL` in `server/.env` (see the cwd note in [Dev Commands](#dev-commands)) — `SENDGRID_FROM_EMAIL` must be a verified sender/domain in the SendGrid account.
+- When the ticket has a `messageId` (i.e. it originated from the inbound email webhook), the job sets `In-Reply-To`/`References` headers so the reply threads in the customer's inbox instead of arriving as a new message.
+- The worker re-fetches the reply and its ticket from the DB by `replyId` rather than taking the data as job payload — keeps the queue payload minimal and avoids sending stale data if the ticket changes between enqueue and send.
+- Follows the same `enqueue*`/`register*Worker` pattern as `classifyTicket.ts` and `autoResolveTicket.ts`: the worker throws on failure so pg-boss retries per the queue's `retryLimit`/`retryBackoff` config, and enqueue-time failures are caught and logged rather than failing the caller's request.
+
+## Error Monitoring (Sentry)
+
+Both apps report errors to Sentry via a dedicated `instrument.ts`, imported as the very first line of the entry point (`server/src/index.ts` / `client/src/main.tsx`) so instrumentation is in place before any other module loads.
+
+- **Server** (`server/src/instrument.ts`, `@sentry/node`): `Sentry.init()` reads `SENTRY_DSN` from `server/.env` (no-ops if unset). `Sentry.setupExpressErrorHandler(app)` is registered in `index.ts` after all routes but before any other error middleware, so thrown/`next(err)` route errors are captured automatically. Errors that are caught and only `console.error`-logged (pg-boss's `error` event in `lib/boss.ts`, the `enqueue*` helpers in `jobs/`, `autoResolveTicket.ts`'s AI-failure catch, and the `polish`/`summarize` catches in `routes/tickets.ts`) also call `Sentry.captureException(err)` explicitly, since they never reach the Express error handler.
+- **Client** (`client/src/instrument.ts`, `@sentry/react`): `Sentry.init()` reads `VITE_SENTRY_DSN` from `client/.env` (see the cwd note in [Dev Commands](#dev-commands) — Vite only exposes `VITE_`-prefixed vars to browser code, and `bun run dev:client` runs with cwd `client/`). Uses `reactRouterV7BrowserTracingIntegration` for parameterized route names in transactions (e.g. `/tickets/:id`); the top-level `<Routes>` in `App.tsx` is wrapped with `Sentry.withSentryReactRouterV7Routing` to enable this (only the top-level `<Routes>` needs wrapping). `main.tsx` also wraps the app in `<Sentry.ErrorBoundary>` to catch render errors.
+
 ## UI Components
 
 shadcn/ui is installed manually for Tailwind v4 compatibility. Components live in `client/src/components/ui/`.

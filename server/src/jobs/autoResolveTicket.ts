@@ -1,10 +1,12 @@
 import { generateObject } from "ai";
 import { openai } from "@ai-sdk/openai";
+import * as Sentry from "@sentry/node";
 import { z } from "zod";
 import { ReplySenderType, TicketStatus } from "core";
 import { boss } from "../lib/boss";
 import { prisma } from "../lib/prisma";
 import { KNOWLEDGE_BASE } from "../lib/knowledgeBase";
+import { enqueueSendReplyEmail } from "./sendReplyEmail";
 import { type Ticket } from "../generated/prisma/client";
 
 export const AUTO_RESOLVE_TICKET_QUEUE = "auto-resolve-ticket";
@@ -33,6 +35,7 @@ export async function enqueueAutoResolveTicket(ticket: Ticket): Promise<void> {
     } satisfies AutoResolveTicketJobData);
   } catch (err) {
     console.error(`Failed to enqueue auto-resolve for ticket ${ticketId}:`, err);
+    Sentry.captureException(err);
   }
 }
 
@@ -78,21 +81,22 @@ export async function registerAutoResolveTicketWorker(): Promise<void> {
       // Leave the ticket OPEN so a human agent can pick it up instead of
       // retrying indefinitely on a persistent AI failure.
       console.error(`Failed to auto-resolve ticket ${ticketId}:`, err);
+      Sentry.captureException(err);
       return;
     }
 
     if (!object.resolvable || object.escalate || !object.reply) return;
 
-    await prisma.$transaction(async (tx) => {
+    const reply = await prisma.$transaction(async (tx) => {
       // Only resolve if the ticket is still OPEN — if an agent already picked
       // it up (status changed) or it was reclassified, leave it for them.
       const { count } = await tx.ticket.updateMany({
         where: { id: ticketId, status: TicketStatus.OPEN },
         data: { status: TicketStatus.RESOLVED },
       });
-      if (count === 0) return;
+      if (count === 0) return null;
 
-      await tx.ticketReply.create({
+      return tx.ticketReply.create({
         data: {
           ticketId,
           body: object.reply!,
@@ -100,5 +104,7 @@ export async function registerAutoResolveTicketWorker(): Promise<void> {
         },
       });
     });
+
+    if (reply) void enqueueSendReplyEmail(reply.id);
   });
 }
