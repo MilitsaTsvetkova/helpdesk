@@ -5,6 +5,8 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth";
+import { boss } from "./lib/boss";
+import { registerClassifyTicketWorker } from "./jobs/classifyTicket";
 import usersRouter from "./routes/users";
 import ticketsRouter from "./routes/tickets";
 
@@ -43,6 +45,9 @@ app.get("/api/health", (_req, res) => {
 
 app.use("/api/users", usersRouter);
 app.use("/api/tickets", ticketsRouter);
+
+await boss.start();
+await registerClassifyTicketWorker();
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
