@@ -3,18 +3,11 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminRoute } from "./components/AdminRoute";
 import { Navbar } from "./components/Navbar";
 import { LoginPage } from "./pages/LoginPage";
+import { DashboardPage } from "./pages/DashboardPage";
 import { TicketsPage } from "./pages/TicketsPage";
 import { TicketDetailPage } from "./pages/TicketDetailPage";
 import { UsersPage } from "./pages/UsersPage";
 import "./index.css";
-
-function Home() {
-  return (
-    <div className="p-8">
-      <h2 className="text-xl font-semibold text-slate-800">Welcome to Helpdesk</h2>
-    </div>
-  );
-}
 
 export default function App() {
   return (
@@ -26,7 +19,7 @@ export default function App() {
           <ProtectedRoute>
             <Navbar />
             <Routes>
-              <Route path="/" element={<Home />} />
+              <Route path="/" element={<DashboardPage />} />
               <Route path="/tickets" element={<TicketsPage />} />
               <Route path="/tickets/:id" element={<TicketDetailPage />} />
               <Route

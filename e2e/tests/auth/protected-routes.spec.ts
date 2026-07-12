@@ -61,18 +61,18 @@ test.describe('Authenticated access — regular user', () => {
 
   test('can access the home page at /', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByRole('heading', { name: 'Welcome to Helpdesk' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
   });
 
   test('session persists after a full page reload', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByRole('heading', { name: 'Welcome to Helpdesk' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
 
     await page.reload();
 
     // After reload, ProtectedRoute re-checks the session — should stay on /
     await expect(page).toHaveURL('/');
-    await expect(page.getByRole('heading', { name: 'Welcome to Helpdesk' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
   });
 
   test('shows the navbar with a logout button when authenticated', async ({ page }) => {
@@ -91,13 +91,13 @@ test.describe('Authenticated access — regular user', () => {
   test('redirects a non-admin user away from /users to /', async ({ page }) => {
     await page.goto('/users');
     await page.waitForURL('/');
-    await expect(page.getByRole('heading', { name: 'Welcome to Helpdesk' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
   });
 
   test('redirects an unknown path inside the app to / (catch-all route)', async ({ page }) => {
     await page.goto('/this-does-not-exist');
     await page.waitForURL('/');
-    await expect(page.getByRole('heading', { name: 'Welcome to Helpdesk' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
   });
 
 });

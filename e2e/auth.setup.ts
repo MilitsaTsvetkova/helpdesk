@@ -73,7 +73,7 @@ setup('seed test users and authenticate', async ({ page, browser }) => {
   // Verify the session works by navigating to the protected home page.
   await page.goto('/');
   await page.waitForURL('/');
-  await expect(page.getByRole('heading', { name: 'Welcome to Helpdesk' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
 
   // Persist session cookies for dependent test projects.
   await page.context().storageState({ path: AUTH_FILE });
@@ -87,7 +87,7 @@ setup('seed test users and authenticate', async ({ page, browser }) => {
   // Verify and capture admin session.
   await adminPage.goto('/');
   await adminPage.waitForURL('/');
-  await expect(adminPage.getByRole('heading', { name: 'Welcome to Helpdesk' })).toBeVisible();
+  await expect(adminPage.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
 
   await adminContext.storageState({ path: ADMIN_AUTH_FILE });
   await adminContext.close();

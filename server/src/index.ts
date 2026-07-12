@@ -10,6 +10,7 @@ import { registerClassifyTicketWorker } from "./jobs/classifyTicket";
 import { registerAutoResolveTicketWorker } from "./jobs/autoResolveTicket";
 import usersRouter from "./routes/users";
 import ticketsRouter from "./routes/tickets";
+import dashboardRouter from "./routes/dashboard";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -46,6 +47,7 @@ app.get("/api/health", (_req, res) => {
 
 app.use("/api/users", usersRouter);
 app.use("/api/tickets", ticketsRouter);
+app.use("/api/dashboard", dashboardRouter);
 
 await boss.start();
 await registerClassifyTicketWorker();

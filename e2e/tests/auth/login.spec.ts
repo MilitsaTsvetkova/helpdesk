@@ -42,7 +42,7 @@ test.describe('Login page', () => {
     await loginPage.login(USER_EMAIL, USER_PASSWORD);
 
     await page.waitForURL('/');
-    await expect(page.getByRole('heading', { name: 'Welcome to Helpdesk' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
   });
 
   test('shows the user name or email in the navbar after login', async ({ page }) => {
@@ -91,7 +91,7 @@ test.describe('Login page', () => {
     await loginPage.submitButton.click();
 
     await page.waitForURL('/');
-    await expect(page.getByRole('heading', { name: 'Welcome to Helpdesk' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
   });
 
   // ---------------------------------------------------------------------------
@@ -104,7 +104,7 @@ test.describe('Login page', () => {
     await loginPage.passwordInput.press('Enter');
 
     await page.waitForURL('/');
-    await expect(page.getByRole('heading', { name: 'Welcome to Helpdesk' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
   });
 });
 
@@ -118,6 +118,6 @@ test.describe('Login page — already authenticated', () => {
   test('redirects an authenticated user away from /login to /', async ({ page }) => {
     await page.goto('/login');
     await page.waitForURL('/');
-    await expect(page.getByRole('heading', { name: 'Welcome to Helpdesk' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
   });
 });

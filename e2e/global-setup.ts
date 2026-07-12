@@ -1,6 +1,15 @@
 import { execSync } from 'node:child_process';
+import fs from 'node:fs';
 import path from 'node:path';
 import { Client } from 'pg';
+
+// `prisma db push` only syncs Prisma-modeled tables/columns; raw-SQL database
+// objects (e.g. stored functions) aren't represented in schema.prisma, so
+// apply their migration files here directly. CREATE OR REPLACE is idempotent,
+// so re-running this on every test run is safe.
+const RAW_SQL_MIGRATIONS = [
+  '20260712094007_add_dashboard_stats_function',
+];
 
 export default async function globalSetup() {
   const testDbUrl = process.env.TEST_DATABASE_URL;
@@ -36,4 +45,15 @@ export default async function globalSetup() {
     env: { ...process.env, DATABASE_URL: testDbUrl },
     stdio: 'inherit',
   });
+
+  const testClient = new Client({ connectionString: testDbUrl });
+  await testClient.connect();
+  for (const migration of RAW_SQL_MIGRATIONS) {
+    const sql = fs.readFileSync(
+      path.resolve(__dirname, `../server/prisma/migrations/${migration}/migration.sql`),
+      'utf-8',
+    );
+    await testClient.query(sql);
+  }
+  await testClient.end();
 }
