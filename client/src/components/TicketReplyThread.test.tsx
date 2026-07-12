@@ -18,6 +18,14 @@ const CUSTOMER_REPLY: TicketReply = {
   author: { id: "cust-1", name: "John Doe", email: "john@example.com" },
 };
 
+const AI_REPLY: TicketReply = {
+  id: 3,
+  body: "This is an auto-generated reply.",
+  senderType: "AI",
+  createdAt: "2024-06-01T13:00:00.000Z",
+  author: null,
+};
+
 describe("TicketReplyThread", () => {
   describe("empty state", () => {
     it("renders nothing when there are no replies", () => {
@@ -58,6 +66,18 @@ describe("TicketReplyThread", () => {
     it("applies slate styling to customer replies", () => {
       render(<TicketReplyThread replies={[CUSTOMER_REPLY]} />);
       expect(screen.getByText("Customer")).toHaveClass("bg-slate-100", "text-slate-500");
+    });
+
+    it("labels an AI reply as AI Assistant and falls back to the label when author is null", () => {
+      render(<TicketReplyThread replies={[AI_REPLY]} />);
+      expect(screen.getByText("This is an auto-generated reply.")).toBeInTheDocument();
+      expect(screen.getAllByText("AI Assistant")).toHaveLength(2);
+    });
+
+    it("applies violet styling to AI replies", () => {
+      render(<TicketReplyThread replies={[AI_REPLY]} />);
+      // Badge renders after the author-name fallback, which shares the same text.
+      expect(screen.getAllByText("AI Assistant")[1]).toHaveClass("bg-violet-100", "text-violet-700");
     });
 
     it("formats createdAt as a human-readable date", () => {

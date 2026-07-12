@@ -35,6 +35,7 @@ enum TicketSource {
 enum ReplySenderType {
   AGENT
   CUSTOMER
+  AI
 }
 
 model User {
@@ -115,8 +116,8 @@ model TicketReply {
   ticket     Ticket          @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   body       String
   senderType ReplySenderType @default(AGENT)
-  authorId   String
-  author     User            @relation(fields: [authorId], references: [id])
+  authorId   String?
+  author     User?           @relation(fields: [authorId], references: [id])
   createdAt  DateTime        @default(now())
 
   @@map("ticket_reply")

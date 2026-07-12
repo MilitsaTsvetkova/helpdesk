@@ -7,6 +7,7 @@ import { toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth";
 import { boss } from "./lib/boss";
 import { registerClassifyTicketWorker } from "./jobs/classifyTicket";
+import { registerAutoResolveTicketWorker } from "./jobs/autoResolveTicket";
 import usersRouter from "./routes/users";
 import ticketsRouter from "./routes/tickets";
 
@@ -48,6 +49,7 @@ app.use("/api/tickets", ticketsRouter);
 
 await boss.start();
 await registerClassifyTicketWorker();
+await registerAutoResolveTicketWorker();
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);

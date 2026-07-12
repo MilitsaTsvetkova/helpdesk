@@ -7,6 +7,7 @@ import { prisma } from "../lib/prisma";
 import { validate } from "../lib/validate";
 import { requireAuth } from "../middleware/requireAuth";
 import { enqueueClassifyTicket } from "../jobs/classifyTicket";
+import { enqueueAutoResolveTicket } from "../jobs/autoResolveTicket";
 
 const UNASSIGNED = "unassigned";
 
@@ -263,6 +264,12 @@ router.post("/:id/replies/polish", requireAuth, async (req, res) => {
   }
 });
 
+function replySpeakerLabel(reply: { senderType: string; author: { name: string } | null }): string {
+  if (reply.senderType === "AI") return "AI Assistant";
+  if (reply.senderType === "AGENT") return `Agent (${reply.author?.name ?? "unknown"})`;
+  return "Customer";
+}
+
 router.post("/:id/summarize", requireAuth, async (req, res) => {
   const id = parseInt(req.params.id as string);
   if (isNaN(id) || id <= 0) {
@@ -287,9 +294,7 @@ router.post("/:id/summarize", requireAuth, async (req, res) => {
 
   const conversation = [
     `Customer: ${ticket.body}`,
-    ...replies.map(
-      (r) => `${r.senderType === "AGENT" ? `Agent (${r.author.name})` : "Customer"}: ${r.body}`,
-    ),
+    ...replies.map((r) => `${replySpeakerLabel(r)}: ${r.body}`),
   ].join("\n\n");
 
   try {
@@ -364,9 +369,10 @@ router.post("/inbound-email", async (req, res) => {
 
   res.status(201).json(ticket);
 
-  // Enqueue classification as a pg-boss job so it runs out-of-process and
-  // never blocks the webhook response.
+  // Enqueue classification and auto-resolution as pg-boss jobs so they run
+  // out-of-process and never block the webhook response.
   void enqueueClassifyTicket(ticket);
+  void enqueueAutoResolveTicket(ticket);
 });
 
 export default router;
